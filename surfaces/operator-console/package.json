@@ -1,0 +1,17 @@
+{
+  "name": "personal-agent-operator-console",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Operator console: the minting dashboard shell. Mint button is stubbed (501) until Slice 3 wires real provisioning.",
+  "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@vercel/node": "^3.2.0",
+    "typescript": "^5.5.0"
+  }
+}

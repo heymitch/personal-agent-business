@@ -5,11 +5,12 @@ load test_helper
 # emits the contract token. Shim every external command so the chain spends no money
 # and touches no box; keep jq real so the dry-run bodies actually compute.
 setup() {
-  make_fake_bin curl jq ssh scp rsync cloudflared
+  make_fake_bin curl jq ssh scp rsync cloudflared vercel
   export HETZNER_TOKEN="fake-token" AGENT_NAME="op-agent"
   export SSH_PUBKEY="ssh-ed25519 AAAA op@host"
   export CLOUDFLARE_API_TOKEN="ck" CLOUDFLARE_ACCOUNT_ID="acct"
   export AGENT_DOMAIN="op.example.com" OWNER_EMAIL="op@x.com"
+  export VERCEL_TOKEN="fake-vercel-token" COMPOSIO_API_KEY="fake-composio-key"
   CLOUD_INIT_FILE="$(mktemp "$REPO_ROOT/test/tmp/cloudinit.XXXXXX")"
   printf 'stub\n' > "$CLOUD_INIT_FILE"
   export CLOUD_INIT_FILE
@@ -28,6 +29,8 @@ teardown() {
 @test "dry_run_all never prints a secret value" {
   run "$SCRIPTS_DIR/dry_run_all.sh"
   [[ "$output" != *"fake-token"* ]]
+  [[ "$output" != *"fake-vercel-token"* ]]
+  [[ "$output" != *"fake-composio-key"* ]]
 }
 
 # Teeth: the token is load-bearing. Drop the echo and the token must vanish,

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Your Personal Agent is live</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500..900&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{--paper:#F1EEEA;--paper-2:#E9E5DD;--ink:#0D0F0E;--ink-2:#3B3C38;--ink-3:#6E6E66;
+      --on-ink:#F1EEEA;--acid:#D1F643;--acid-wash:#EAF4C0;--acid-dim:#AFC93A;--hair:rgba(13,15,14,.14);
+      --fd:"Big Shoulders Display","Oswald",sans-serif;--fm:"JetBrains Mono",ui-monospace,monospace;
+      --fs:"Space Grotesk",Arial,sans-serif;}
+    *{box-sizing:border-box;}html,body{margin:0;background:var(--paper);color:var(--ink);}
+    body{font-family:var(--fs);-webkit-font-smoothing:antialiased;}
+    .wrap{max-width:600px;margin:0 auto;padding:80px 24px;}
+    .eyebrow{font-family:var(--fm);font-size:11px;text-transform:uppercase;letter-spacing:.18em;
+      color:var(--ink-3);margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+    .eyebrow .dot{width:8px;height:8px;border-radius:999px;background:var(--acid);}
+    h1{font-family:var(--fd);font-weight:800;font-size:64px;line-height:.92;text-transform:uppercase;margin:0 0 16px;}
+    p{color:var(--ink-2);font-size:16px;line-height:1.6;margin:0 0 26px;max-width:48ch;}
+    .card{background:var(--acid-wash);border:1px solid var(--acid-dim);border-radius:2px;padding:18px;margin-bottom:10px;}
+    .card .t{font-family:var(--fd);text-transform:uppercase;font-weight:700;font-size:18px;margin:0 0 4px;}
+    .card .d{font-size:14px;color:var(--ink-2);}
+    .foot{font-family:var(--fm);font-size:10px;text-transform:uppercase;letter-spacing:.18em;color:var(--ink-3);margin-top:30px;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="eyebrow"><span class="dot"></span> Personal Agent · Ready</div>
+    <h1>Your Personal<br>Agent is live</h1>
+    <p>It's already working with the tools you connected. Two ways it'll reach you:</p>
+    <div class="card"><div class="t">Check your email</div><div class="d">Your agent will introduce itself from its own inbox, including a one-tap link to add it to Slack.</div></div>
+    <div class="card"><div class="t">Then say hi in Slack</div><div class="d">Once it's in, just DM it like a teammate. It already has your context and your apps.</div></div>
+    <div class="foot">You can close this tab</div>
+  </div>
+</body>
+</html>

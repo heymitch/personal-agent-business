@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!--
+    OPERATOR CONSOLE (the minting dashboard shell).
+
+    Slice 2 ships the SHELL only. The "Mint an agent" form is real, but its submit
+    is STUBBED: it posts to /api/mint, which returns 501 (not wired yet). Slice 3
+    replaces that stub with the real provisioning call (mint_client_agent.sh). Until
+    then the form shows a plain "not yet connected" notice. Nothing here fakes a
+    provision or pretends an agent was created.
+
+    Mint form fields (per spec):
+      - Client account: OPTIONAL, FILLABLE DROPDOWN (combobox). Choose an existing
+        account from the list, OR type a brand-new account name, OR leave it blank.
+        This is a naming/org layer only. It never enters the person's identity hash.
+      - Person name: required.
+      - Person email: required. The per-person-email identity is derived from THIS.
+  -->
+  <title>Operator Console | Personal Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500..900&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --paper:#F1EEEA; --paper-2:#E9E5DD; --paper-3:#DCD7CD;
+      --line:#CDC7BB; --hair:rgba(13,15,14,.14); --hair-soft:rgba(13,15,14,.08);
+      --ink:#0D0F0E; --ink-2:#3B3C38; --ink-3:#6E6E66; --on-ink:#F1EEEA;
+      --acid:#D1F643; --acid-2:#C2E62F; --acid-dim:#AFC93A; --acid-wash:#EAF4C0;
+      --warn:#B23A2E; --warn-wash:#F3E2DE;
+      --font-display:"Big Shoulders Display","Oswald",sans-serif;
+      --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+      --font-sans:"Space Grotesk","Helvetica Neue",Arial,sans-serif;
+      --r:2px; --tr-label:.18em;
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;background:var(--paper);color:var(--ink);}
+    body{font-family:var(--font-sans);-webkit-font-smoothing:antialiased;}
+    ::selection{background:var(--acid);color:var(--ink);}
+    .wrap{max-width:920px;margin:0 auto;padding:40px 24px 90px;}
+    .eyebrow{font-family:var(--font-mono);font-weight:500;text-transform:uppercase;
+      letter-spacing:var(--tr-label);font-size:11px;color:var(--ink-3);margin-bottom:14px;
+      display:flex;align-items:center;gap:10px;}
+    .eyebrow .dot{width:7px;height:7px;border-radius:999px;background:var(--acid);}
+    h1{font-family:var(--font-display);font-weight:800;font-size:46px;line-height:.95;
+      text-transform:uppercase;margin:0 0 8px;}
+    p.sub{color:var(--ink-2);margin:0 0 28px;max-width:60ch;font-size:15px;line-height:1.55;}
+    .cols{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;}
+    @media(max-width:760px){.cols{grid-template-columns:1fr;}}
+    .panel{background:var(--paper-2);border:1px solid var(--hair);border-radius:var(--r);padding:22px;}
+    .panel h3{font-family:var(--font-display);text-transform:uppercase;font-weight:700;font-size:20px;margin:0 0 14px;}
+    label{display:block;font-family:var(--font-mono);font-size:11px;text-transform:uppercase;
+      letter-spacing:var(--tr-label);color:var(--ink-3);margin:14px 0 6px;}
+    label .opt{color:var(--acid-dim);}
+    input{width:100%;font-family:var(--font-mono);font-size:14px;color:var(--ink);
+      background:var(--paper);border:1px solid var(--ink);border-radius:var(--r);padding:13px 14px;}
+    input::placeholder{color:var(--ink-3);}
+    .hint{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);margin-top:5px;line-height:1.4;}
+    .btn{margin-top:20px;width:100%;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;
+      letter-spacing:.1em;font-size:14px;border:1px solid var(--ink);border-radius:999px;padding:15px 22px;
+      background:var(--acid);color:var(--ink);cursor:pointer;}
+    .btn:hover{background:var(--acid-2);}
+    .notice{margin-top:16px;font-family:var(--font-mono);font-size:12px;line-height:1.5;
+      border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;background:var(--paper-3);
+      color:var(--ink-2);display:none;}
+    .notice.warn{display:block;background:var(--warn-wash);border-color:var(--warn);color:var(--warn);}
+    .clients .row{display:flex;justify-content:space-between;align-items:center;gap:10px;
+      padding:11px 0;border-bottom:1px solid var(--hair-soft);font-size:14px;}
+    .clients .row:last-child{border-bottom:none;}
+    .clients .acct{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;
+      letter-spacing:.1em;color:var(--ink-3);}
+    .empty{font-family:var(--font-mono);font-size:12px;color:var(--ink-3);padding:14px 0;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="eyebrow"><span class="dot"></span> Operator Console</div>
+    <h1>Mint a personal agent</h1>
+    <p class="sub">Close a client, then mint their agent here. Pick or name the client
+      account, add the person, and we provision their always-on personal agent. One
+      agent per person; group people under a client account.</p>
+
+    <div class="cols">
+      <!-- MINT FORM -->
+      <div class="panel">
+        <h3>Add an agent</h3>
+        <form id="mintForm" autocomplete="off">
+          <!-- CLIENT ACCOUNT: optional, fillable dropdown (combobox).
+               input + datalist = pick an existing account OR type a new one OR leave blank. -->
+          <label for="clientAccount">Client account <span class="opt">(optional)</span></label>
+          <input id="clientAccount" name="clientAccount" list="accountList"
+                 placeholder="Choose an account, type a new one, or leave blank" />
+          <datalist id="accountList"></datalist>
+          <div class="hint">Optional. Choose an existing account from the list, type a
+            brand-new account name, or leave it blank. Names and groups the box and URL
+            only. It never changes the person's identity.</div>
+
+          <label for="personName">Person name</label>
+          <input id="personName" name="personName" required placeholder="e.g. Colin" />
+
+          <label for="personEmail">Person email</label>
+          <input id="personEmail" name="personEmail" type="email" required placeholder="colin@example.com" />
+          <div class="hint">The agent's identity is derived from this email. The same
+            person always maps to the same agent.</div>
+
+          <button class="btn" type="submit">Mint an agent</button>
+          <div class="notice" id="notice"></div>
+        </form>
+      </div>
+
+      <!-- CLIENT LIST -->
+      <div class="panel">
+        <h3>Your clients</h3>
+        <div class="clients" id="clients">
+          <div class="empty">No clients yet. Mint your first agent to see it here.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Slice 2: the client list and account dropdown are seeded empty. Slice 3 wires
+    // both to real data from the minting backend. No fabricated rows here.
+    const accountList=document.getElementById("accountList");
+    const clientsEl=document.getElementById("clients");
+
+    // Known accounts populate the combobox so the operator can reuse one. Empty in
+    // the shell; Slice 3 fills this from the backend.
+    const KNOWN_ACCOUNTS=[];
+    for(const a of KNOWN_ACCOUNTS){
+      const o=document.createElement("option"); o.value=a; accountList.appendChild(o);
+    }
+
+    const form=document.getElementById("mintForm");
+    const notice=document.getElementById("notice");
+    form.addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      notice.className="notice";
+      const payload={
+        clientAccount:document.getElementById("clientAccount").value.trim(),
+        personName:document.getElementById("personName").value.trim(),
+        personEmail:document.getElementById("personEmail").value.trim(),
+      };
+      // The submit is STUBBED. /api/mint returns 501 until Slice 3 wires real
+      // provisioning. Show a clear "not yet connected" notice. Never fake a result.
+      try{
+        const r=await fetch("/api/mint",{method:"POST",
+          headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
+        const j=await r.json().catch(()=>({}));
+        if(r.status===501){
+          notice.className="notice warn";
+          notice.textContent=(j&&j.error)||"Minting is not connected yet. This wires up in the next step (Slice 3).";
+          return;
+        }
+        if(!r.ok){
+          notice.className="notice warn";
+          notice.textContent=(j&&j.error)||("Mint failed ("+r.status+").");
+          return;
+        }
+        // Slice 3 will render the real minted-agent result here.
+        notice.className="notice";
+        notice.style.display="block";
+        notice.textContent="Minted.";
+      }catch(err){
+        notice.className="notice warn";
+        notice.textContent="Could not reach the mint endpoint: "+err.message;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -19,6 +19,9 @@ echo "== cf_portal.sh --dry-run =="
 echo "== cf_ssh.sh --dry-run =="
 "$HERE/cf_ssh.sh" --dry-run
 
+echo "== deploy_surfaces.sh --dry-run =="
+"$HERE/deploy_surfaces.sh" --dry-run
+
 # install_connector / configure_box / move_up have no --dry-run API path. They are
 # arg-validated via their no-args usage guard. This MUST be teethy: capture the
 # output, then assert "usage" with a form that EXITS NON-ZERO when the guard is

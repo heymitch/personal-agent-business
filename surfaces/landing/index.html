@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!--
+    PERSONAL AGENT LANDING PAGE TEMPLATE (operator-branded shell).
+
+    This is a NEUTRAL starter. It ships with placeholder slots only. You fill
+    every [[ SLOT ]] with your OWN copy (generate it with your landing/offer
+    prompt, then paste it in). Replace the <title>, the meta description, and
+    each numbered section below. Nothing here is marketing copy: it is scaffolding
+    so a non-technical operator can brand a converting page without touching layout.
+
+    Eleven sections are scaffolded, in order:
+      1. Hero (headline + subhead + primary CTA)
+      2. Social proof bar (logos / numbers)
+      3. Problem (the pain you solve)
+      4. Solution (what your personal agent does)
+      5. How it works (3 steps)
+      6. Features / benefits (the grid)
+      7. Offer stack (what they get)
+      8. Testimonials (proof from real people)
+      9. Pricing (the ask)
+     10. FAQ (objection handling)
+     11. Final CTA (last call to action)
+
+    Branding rule: this is a "personal agent" service. Keep that language.
+    No em dashes. Swap the CTA links (#cta) to your booking or checkout URL.
+  -->
+  <title>[[ YOUR HEADLINE ]] | Personal Agent</title>
+  <meta name="description" content="[[ ONE-SENTENCE DESCRIPTION OF YOUR PERSONAL AGENT OFFER ]]" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500..900&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --paper:#F1EEEA; --paper-2:#E9E5DD; --paper-3:#DCD7CD;
+      --line:#CDC7BB; --hair:rgba(13,15,14,.14); --hair-soft:rgba(13,15,14,.08);
+      --ink:#0D0F0E; --ink-2:#3B3C38; --ink-3:#6E6E66; --on-ink:#F1EEEA;
+      --acid:#D1F643; --acid-2:#C2E62F; --acid-dim:#AFC93A; --acid-wash:#EAF4C0;
+      --font-display:"Big Shoulders Display","Oswald",sans-serif;
+      --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+      --font-sans:"Space Grotesk","Helvetica Neue",Arial,sans-serif;
+      --r:2px; --tr-label:.18em;
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;background:var(--paper);color:var(--ink);}
+    body{font-family:var(--font-sans);-webkit-font-smoothing:antialiased;}
+    ::selection{background:var(--acid);color:var(--ink);}
+    a{color:var(--ink);}
+    .wrap{max-width:1040px;margin:0 auto;padding:0 24px;}
+    section{padding:72px 0;border-bottom:1px solid var(--hair-soft);}
+    .eyebrow{font-family:var(--font-mono);font-weight:500;text-transform:uppercase;
+      letter-spacing:var(--tr-label);font-size:11px;color:var(--ink-3);margin-bottom:14px;
+      display:flex;align-items:center;gap:10px;}
+    .eyebrow .dot{width:7px;height:7px;border-radius:999px;background:var(--acid);}
+    .slot{font-family:var(--font-mono);font-size:12px;color:var(--ink-3);
+      background:var(--paper-3);border:1px dashed var(--line);border-radius:var(--r);
+      padding:6px 10px;display:inline-block;margin:4px 0;}
+    h1{font-family:var(--font-display);font-weight:800;font-size:64px;line-height:.94;
+      letter-spacing:-.01em;text-transform:uppercase;margin:0 0 18px;}
+    h2{font-family:var(--font-display);font-weight:800;font-size:38px;line-height:1;
+      text-transform:uppercase;margin:0 0 14px;}
+    p.lead{color:var(--ink-2);font-size:18px;line-height:1.55;max-width:60ch;margin:0 0 26px;}
+    p{color:var(--ink-2);font-size:15px;line-height:1.6;max-width:62ch;}
+    .btn{font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+      font-size:14px;border:1px solid var(--ink);border-radius:999px;padding:16px 26px;
+      background:var(--acid);color:var(--ink);text-decoration:none;display:inline-block;}
+    .btn:hover{background:var(--acid-2);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:18px;}
+    .tile{background:var(--paper-2);border:1px solid var(--hair);border-radius:var(--r);padding:20px;}
+    .tile .t{font-family:var(--font-display);text-transform:uppercase;font-weight:700;font-size:18px;margin:0 0 6px;}
+    .steprow{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px;}
+    @media(max-width:720px){h1{font-size:44px;}.steprow{grid-template-columns:1fr;}}
+    .logos{display:flex;flex-wrap:wrap;gap:24px;align-items:center;opacity:.7;margin-top:10px;}
+    .pricecard{background:var(--paper-2);border:1px solid var(--ink);border-radius:var(--r);
+      padding:28px;max-width:380px;}
+    .faq dt{font-family:var(--font-display);text-transform:uppercase;font-weight:700;font-size:18px;margin-top:18px;}
+    .faq dd{margin:6px 0 0;color:var(--ink-2);}
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================= -->
+  <!-- SECTION 1 of 11 - HERO -->
+  <!-- ============================================================= -->
+  <section id="hero">
+    <div class="wrap">
+      <div class="eyebrow"><span class="dot"></span> Personal Agent</div>
+      <h1>[[ 1. HERO HEADLINE ]]</h1>
+      <p class="lead">[[ 1. HERO SUBHEAD: one or two sentences on the outcome you deliver ]]</p>
+      <a class="btn" href="#cta">[[ 1. PRIMARY CTA LABEL ]]</a>
+      <p><span class="slot">SLOT: point #cta to your booking or checkout URL</span></p>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- SECTION 2 of 11 - SOCIAL PROOF BAR -->
+  <!-- ============================================================= -->
+  <section id="proof-bar">
+    <div class="wrap">
+      <div class="eyebrow"><span class="dot"></span> Trusted by</div>
+      <div class="logos">
+        <span class="slot">SLOT: logo or metric 1</span>
+        <span class="slot">SLOT: logo or metric 2</span>
+        <span class="slot">SLOT: logo or metric 3</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- SECTION 3 of 11 - PROBLEM -->
+  <!-- ============================================================= -->
+  <section id="problem">
+    <div class="wrap">
+      <h2>[[ 3. THE PROBLEM HEADLINE ]]</h2>
+      <p>[[ 3. Describe the pain your buyer feels today, in their words ]]</p>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- SECTION 4 of 11 - SOLUTION -->
+  <!-- ============================================================= -->
+  <section id="solution">
+    <div class="wrap">
+      <h2>[[ 4. THE SOLUTION HEADLINE ]]</h2>
+      <p class="lead">[[ 4. What your personal agent is and what it does for them ]]</p>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- SECTION 5 of 11 - HOW IT WORKS (3 steps) -->
+  <!-- ============================================================= -->
+  <section id="how">
+    <div class="wrap">
+      <h2>[[ 5. HOW IT WORKS HEADLINE ]]</h2>
+      <div class="steprow">
+        <div class="tile"><div class="t">Step 1</div><p>[[ 5. step one ]]</p></div>
+        <div class="tile"><div class="t">Step 2</div><p>[[ 5. step two ]]</p></div>
+        <div class="tile"><div class="t">Step 3</div><p>[[ 5. step three ]]</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- SECTION 6 of 11 - FEATURES / BENEFITS -->
+  <!-- ============================================================= -->
+  <section id="features">
+    <div class="wrap">
+      <h2>[[ 6. FEATURES HEADLINE ]]</h2>
+      <div class="grid">
+        <div class="tile"><div class="t">[[ feature 1 ]]</div><p>[[ benefit 1 ]]</p></div>
+        <div class="tile"><div class="t">[[ feature 2 ]]</div><p>[[ benefit 2 ]]</p></div>
+        <div class="tile"><div class="t">[[ feature 3 ]]</div><p>[[ benefit 3 ]]</p></div>
+        <div class="tile"><div class="t">[[ feature 4 ]]</div><p>[[ benefit 4 ]]</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- SECTION 7 of 11 - OFFER STACK -->
+  <!-- ============================================================= -->
+  <section id="offer">
+    <div class="wrap">
+      <h2>[[ 7. WHAT YOU GET HEADLINE ]]</h2>
+      <div class="grid">
+        <div class="tile"><div class="t">[[ deliverable 1 ]]</div><p>[[ value of deliverable 1 ]]</p></div>
+        <div class="tile"><div class="t">[[ deliverable 2 ]]</div><p>[[ value of deliverable 2 ]]</p></div>
+        <div class="tile"><div class="t">[[ deliverable 3 ]]</div><p>[[ value of deliverable 3 ]]</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- SECTION 8 of 11 - TESTIMONIALS -->
+  <!-- ============================================================= -->
+  <section id="testimonials">
+    <div class="wrap">
+      <h2>[[ 8. TESTIMONIALS HEADLINE ]]</h2>
+      <div class="grid">
+        <div class="tile"><p>"[[ testimonial 1 ]]"</p><div class="t">[[ name 1 ]]</div></div>
+        <div class="tile"><p>"[[ testimonial 2 ]]"</p><div class="t">[[ name 2 ]]</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- SECTION 9 of 11 - PRICING -->
+  <!-- ============================================================= -->
+  <section id="pricing">
+    <div class="wrap">
+      <h2>[[ 9. PRICING HEADLINE ]]</h2>
+      <div class="pricecard">
+        <div class="t" style="font-family:var(--font-display);font-size:28px;text-transform:uppercase;">[[ 9. price ]]</div>
+        <p>[[ 9. what the price includes ]]</p>
+        <a class="btn" href="#cta">[[ 9. pricing CTA label ]]</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- SECTION 10 of 11 - FAQ -->
+  <!-- ============================================================= -->
+  <section id="faq">
+    <div class="wrap">
+      <h2>[[ 10. FAQ HEADLINE ]]</h2>
+      <dl class="faq">
+        <dt>[[ question 1 ]]</dt><dd>[[ answer 1 ]]</dd>
+        <dt>[[ question 2 ]]</dt><dd>[[ answer 2 ]]</dd>
+        <dt>[[ question 3 ]]</dt><dd>[[ answer 3 ]]</dd>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ============================================================= -->
+  <!-- SECTION 11 of 11 - FINAL CTA -->
+  <!-- ============================================================= -->
+  <section id="cta" style="border-bottom:none;">
+    <div class="wrap">
+      <h2>[[ 11. FINAL CTA HEADLINE ]]</h2>
+      <p class="lead">[[ 11. last reason to act now ]]</p>
+      <a class="btn" href="[[ YOUR BOOKING OR CHECKOUT URL ]]">[[ 11. FINAL CTA LABEL ]]</a>
+    </div>
+  </section>
+
+</body>
+</html>

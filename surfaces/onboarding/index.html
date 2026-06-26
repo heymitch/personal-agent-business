@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Get your Personal Agent: Onboarding</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500..900&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --paper:#F1EEEA; --paper-2:#E9E5DD; --paper-3:#DCD7CD;
+      --line:#CDC7BB; --hair:rgba(13,15,14,.14); --hair-soft:rgba(13,15,14,.08);
+      --ink:#0D0F0E; --ink-2:#3B3C38; --ink-3:#6E6E66; --on-ink:#F1EEEA;
+      --acid:#D1F643; --acid-2:#C2E62F; --acid-dim:#AFC93A; --acid-wash:#EAF4C0;
+      --success:#5E8C2E;
+      --font-display:"Big Shoulders Display","Oswald",sans-serif;
+      --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+      --font-sans:"Space Grotesk","Helvetica Neue",Arial,sans-serif;
+      --r:2px; --tr-label:.18em;
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;background:var(--paper);color:var(--ink);}
+    body{font-family:var(--font-sans);-webkit-font-smoothing:antialiased;}
+    ::selection{background:var(--acid);color:var(--ink);}
+    button{font-family:inherit;cursor:pointer;}
+    a{color:var(--ink);}
+    :focus-visible{outline:2px solid var(--acid);outline-offset:2px;}
+    .wrap{max-width:980px;margin:0 auto;padding:40px 24px 90px;}
+
+    /* progress bar */
+    .steps{display:flex;gap:8px;margin-bottom:34px;}
+    .seg{flex:1;display:flex;flex-direction:column;gap:8px;}
+    .seg .bar{height:4px;background:var(--paper-3);border-radius:999px;overflow:hidden;}
+    .seg .bar i{display:block;height:100%;width:0;background:var(--acid);transition:width .4s ease;}
+    .seg.done .bar i,.seg.active .bar i{width:100%;}
+    .seg.active .bar i{width:50%;}
+    .seg .lbl{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;
+      letter-spacing:var(--tr-label);color:var(--ink-3);}
+    .seg.active .lbl,.seg.done .lbl{color:var(--ink);}
+
+    .eyebrow{font-family:var(--font-mono);font-weight:500;text-transform:uppercase;
+      letter-spacing:var(--tr-label);font-size:11px;color:var(--ink-3);margin-bottom:14px;
+      display:flex;align-items:center;gap:10px;}
+    .eyebrow .dot{width:7px;height:7px;border-radius:999px;background:var(--acid);}
+    h1{font-family:var(--font-display);font-weight:800;font-size:52px;line-height:.95;
+      letter-spacing:-.01em;text-transform:uppercase;margin:0 0 14px;}
+    p.sub{color:var(--ink-2);margin:0 0 26px;max-width:56ch;font-size:15px;line-height:1.55;}
+
+    .panel{background:var(--paper-2);border:1px solid var(--hair);border-radius:var(--r);padding:22px;}
+    .panel h3{font-family:var(--font-display);text-transform:uppercase;font-weight:700;
+      font-size:20px;margin:0 0 6px;}
+    .panel ol{margin:10px 0 0;padding-left:20px;color:var(--ink-2);font-size:14px;line-height:1.7;}
+    .pill{display:inline-block;font-family:var(--font-mono);font-size:12px;background:var(--ink);
+      color:var(--on-ink);padding:4px 10px;border-radius:999px;letter-spacing:.06em;}
+
+    /* nav */
+    .nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:28px;}
+    .btn{font-family:var(--font-mono);font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+      font-size:13px;border:1px solid var(--ink);border-radius:999px;padding:14px 22px;}
+    .btn.primary{background:var(--acid);color:var(--ink);}
+    .btn.primary:hover{background:var(--acid-2);}
+    .btn.ghost{background:transparent;color:var(--ink);}
+    .btn.ghost:hover{background:var(--paper-3);}
+    .btn[disabled]{opacity:.4;cursor:default;}
+
+    /* app grid */
+    .searchrow{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+    input.search{flex:1;font-family:var(--font-mono);font-size:14px;color:var(--ink);
+      background:var(--paper);border:1px solid var(--ink);border-radius:var(--r);padding:13px 15px;}
+    input.search::placeholder{color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em;font-size:12px;}
+    .count{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:var(--tr-label);color:var(--ink-3);white-space:nowrap;}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+    .card{background:var(--paper-2);border:1px solid var(--hair);border-radius:var(--r);padding:15px;
+      cursor:pointer;display:flex;flex-direction:column;gap:9px;min-height:138px;transition:border-color .12s,background .12s;}
+    .card:hover{border-color:var(--ink);}
+    .card.on{background:var(--acid-wash);border-color:var(--acid-dim);}
+    .card .ic{width:30px;height:30px;display:flex;align-items:center;justify-content:center;}
+    .card .ic img{max-width:30px;max-height:30px;object-fit:contain;}
+    .card .ic .fb{font-family:var(--font-display);font-weight:800;font-size:20px;width:30px;height:30px;
+      display:flex;align-items:center;justify-content:center;background:var(--ink);color:var(--on-ink);border-radius:var(--r);}
+    .card .nm{font-family:var(--font-display);font-weight:700;font-size:17px;line-height:1;text-transform:uppercase;}
+    .card .ds{font-family:var(--font-sans);font-size:11px;line-height:1.35;color:var(--ink-3);
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+    .card .ft{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;}
+    .card .ct{font-family:var(--font-mono);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#9A9A90;white-space:nowrap;}
+    .card .st{font-family:var(--font-mono);font-weight:500;text-transform:uppercase;letter-spacing:var(--tr-label);font-size:9px;color:var(--ink-3);}
+    .card.on .st{color:var(--success);}
+    .loading{font-family:var(--font-mono);font-size:12px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.1em;padding:30px 0;}
+    .err{color:#B23A2E;font-family:var(--font-mono);font-size:12px;margin:12px 0 0;min-height:16px;}
+
+    /* tour */
+    .tour{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .tcard{background:var(--paper-2);border:1px solid var(--hair);border-radius:var(--r);padding:18px;}
+    .tcard .tn{font-family:var(--font-display);text-transform:uppercase;font-weight:800;font-size:22px;margin:0 0 4px;}
+    .tcard .tt{font-family:var(--font-mono);font-size:9px;text-transform:uppercase;letter-spacing:var(--tr-label);color:var(--success);margin-bottom:8px;}
+    .tcard .td{font-size:13px;line-height:1.5;color:var(--ink-2);}
+    .build{margin:0 0 18px;}
+    .build .lbl{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:var(--tr-label);color:var(--ink-3);margin-bottom:8px;}
+    .build .bar{height:6px;background:var(--paper-3);border-radius:999px;overflow:hidden;}
+    .build .bar i{display:block;height:100%;width:8%;background:var(--acid);transition:width .9s ease;}
+    .hide{display:none;}
+    @media(max-width:640px){.tour{grid-template-columns:1fr;}h1{font-size:40px;}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="steps" id="steps"></div>
+
+    <!-- STEP 1: Slack -->
+    <section id="s-slack">
+      <div class="eyebrow"><span class="dot"></span> Step 1 · Connect Slack</div>
+      <h1>Add your<br>Personal Agent to Slack</h1>
+      <p class="sub">Your agent lives where you work. Invite us into your Slack as an admin and we set everything up for you. You just send the invite. We handle the bots, tokens, and wiring.</p>
+      <div class="panel">
+        <h3>Invite us</h3>
+        <!-- EDIT THIS: replace with YOUR ops email (the address buyers invite into their Slack). -->
+        <p style="margin:6px 0 0;color:var(--ink-2);font-size:14px;">Add <span class="pill" id="opEmail">ops@your-domain.com</span> to your workspace as an <b>Admin</b> (or app-admin on Enterprise Grid).</p>
+        <ol>
+          <li>Slack → your workspace name → <b>Settings & administration → Manage members</b>.</li>
+          <li><b>Invite people</b> → enter the address above → set role to <b>Admin</b> → send.</li>
+          <li>Come back and hit the button below. We take it from there.</li>
+        </ol>
+      </div>
+      <div class="nav">
+        <span></span>
+        <button class="btn primary" onclick="go(1)">I've sent the invite →</button>
+      </div>
+    </section>
+
+    <!-- STEP 2: Apps -->
+    <section id="s-apps" class="hide">
+      <div class="eyebrow"><span class="dot"></span> Step 2 · Connect your apps</div>
+      <h1>Connect your tools</h1>
+      <p class="sub">Pick the apps you use and authorize each right here. Your agent will have them ready the moment you first message it.</p>
+      <div class="searchrow">
+        <input class="search" id="search" placeholder="Search for your tools" autocomplete="off" />
+        <span class="count" id="count"></span>
+      </div>
+      <div class="grid" id="grid"><div class="loading">Loading apps…</div></div>
+      <div class="err" id="err"></div>
+      <div class="nav">
+        <button class="btn ghost" onclick="go(0)">← Back</button>
+        <button class="btn primary" onclick="go(2)">Continue →</button>
+      </div>
+    </section>
+
+    <!-- STEP 3: Tour while it builds -->
+    <section id="s-tour" class="hide">
+      <div class="eyebrow"><span class="dot"></span> Step 3 · Meet your agent</div>
+      <h1 id="tourH1">Building your agent…</h1>
+      <p class="sub">While we finish wiring everything up, here's what makes your personal agent different from a chatbot.</p>
+      <div class="build"><div class="lbl" id="buildLbl">Provisioning · connecting · waking up</div><div class="bar"><i id="buildBar"></i></div></div>
+      <div class="tour" id="tour"></div>
+      <div class="nav">
+        <span></span>
+        <button class="btn primary" id="finishBtn" disabled>Take me to my agent →</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const params=new URLSearchParams(location.search);
+    const userId=params.get("user")||"";
+    const STEP_LABELS=["Slack","Apps","Tour"];
+    const SCREENS=["s-slack","s-apps","s-tour"];
+    let step=0;
+
+    // progress bar
+    const elSteps=document.getElementById("steps");
+    function renderSteps(){
+      elSteps.innerHTML="";
+      STEP_LABELS.forEach((l,i)=>{
+        const d=document.createElement("div");
+        d.className="seg"+(i<step?" done":i===step?" active":"");
+        d.innerHTML=`<div class="bar"><i></i></div><div class="lbl">${i+1} · ${l}</div>`;
+        elSteps.appendChild(d);
+      });
+    }
+    function go(n){
+      step=Math.max(0,Math.min(SCREENS.length-1,n));
+      SCREENS.forEach((id,i)=>document.getElementById(id).classList.toggle("hide",i!==step));
+      renderSteps(); window.scrollTo({top:0,behavior:"smooth"});
+      if(step===2) startTour();
+    }
+
+    // ---- Step 2: app catalog ----
+    const elGrid=document.getElementById("grid"),elErr=document.getElementById("err"),
+          elCount=document.getElementById("count"),elSearch=document.getElementById("search");
+    let all=[],connected=new Set(),q="",FEATURED=60;
+    function visible(){
+      const s=q.trim().toLowerCase();
+      let list=s?all.filter(t=>t.name.toLowerCase().includes(s)||t.slug.includes(s)):all;
+      const capped=!s&&list.length>FEATURED; if(capped)list=list.slice(0,FEATURED);
+      elCount.textContent=s?`${list.length} match`:(capped?`top ${FEATURED} of ${all.length}`:`${all.length} apps`);
+      return list;
+    }
+    function renderGrid(){
+      const list=visible(); elGrid.innerHTML="";
+      for(const t of list){
+        const on=connected.has(t.slug);
+        const c=document.createElement("div"); c.className="card"+(on?" on":"");
+        const fb=(t.name||"?").trim()[0]||"?";
+        c.innerHTML=`<div class="ic">${t.logo?`<img loading="lazy" src="${t.logo}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'fb',textContent:'${fb}'}))">`:`<div class="fb">${fb}</div>`}</div>
+          <div class="nm">${t.name}</div>${t.description?`<div class="ds">${t.description}</div>`:""}
+          <div class="ft"><span class="ct">${t.tools!=null?t.tools+" actions":""}</span><span class="st">${on?"Connected ✓":"Connect"}</span></div>`;
+        c.onclick=()=>connect(t.slug); elGrid.appendChild(c);
+      }
+      if(!list.length)elGrid.innerHTML=`<div class="loading">No apps match “${q}”.</div>`;
+    }
+    async function connect(slug){
+      elErr.textContent="";
+      if(!userId){ elErr.textContent="Open this page from your personal invite link. It carries your account id."; return; }
+      try{
+        const r=await fetch("/api/connect-link",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({userId,toolkit:slug})});
+        const j=await r.json(); if(!r.ok)throw new Error(j.error||"failed");
+        window.open(j.redirectUrl,"_blank","width=520,height=680"); pollConns();
+      }catch(e){elErr.textContent=e.message;}
+    }
+    async function pollConns(){
+      for(let i=0;i<40;i++){await new Promise(r=>setTimeout(r,3000));
+        try{const r=await fetch("/api/status?userId="+encodeURIComponent(userId));const j=await r.json();
+          if(r.ok){connected=new Set(j.connected||[]);renderGrid();}}catch{}}
+    }
+    let tmr; elSearch.oninput=()=>{q=elSearch.value;clearTimeout(tmr);tmr=setTimeout(renderGrid,120);};
+
+    // ---- Step 3: tour + build bar ----
+    const TOUR=[
+      {n:"AgentMail",t:"Its own inbox",d:"Your agent has a real email address. It sends, receives, and replies for you, and reaches out first."},
+      {n:"Heartbeat",t:"Proactive, not reactive",d:"Every 30 minutes it quietly checks what needs you, and only pings when something actually does."},
+      {n:"Sifu",t:"Teaches itself",d:"Show it a workflow once. Sifu turns it into a reusable skill, no code, no prompts to re-type."},
+      {n:"Myrmidocs",t:"Knows your business",d:"A structured knowledge base so your agent understands your people, projects, and how you work."},
+    ];
+    let tourStarted=false;
+    function startTour(){
+      if(tourStarted)return; tourStarted=true;
+      const tour=document.getElementById("tour");
+      tour.innerHTML=TOUR.map(c=>`<div class="tcard"><div class="tn">${c.n}</div><div class="tt">${c.t}</div><div class="td">${c.d}</div></div>`).join("");
+      // KNOWN STUB (Slice 2): the build bar is a simulated progress animation, not
+      // a real provisioning poll. Optional Slice 3 wiring replaces this tick with a
+      // poll against the operator receiver's mint/provision status. Left as-is here.
+      const bar=document.getElementById("buildBar"); let p=8;
+      const tick=setInterval(()=>{p=Math.min(100,p+Math.round(8+Math.random()*14));bar.style.width=p+"%";
+        if(p>=100){clearInterval(tick);
+          document.getElementById("tourH1").textContent="Your agent is live";
+          document.getElementById("buildLbl").textContent="Ready · check your email and Slack";
+          const fb=document.getElementById("finishBtn"); fb.disabled=false; fb.classList.add("ready");
+        }},900);
+    }
+    document.getElementById("finishBtn").onclick=()=>{location.href="/done.html";};
+
+    // ---- boot ----
+    (async()=>{
+      try{const r=await fetch("/api/toolkits");const j=await r.json();all=j.toolkits||[];}
+      catch(e){elErr.textContent="Couldn't load the app catalog: "+e.message;}
+      if(!userId)elErr.textContent="Missing ?user= in the address. This page opens from your invite / purchase link.";
+      renderGrid(); if(userId)pollConns();
+    })();
+    renderSteps(); go(0);
+  </script>
+</body>
+</html>

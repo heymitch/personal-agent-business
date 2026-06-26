@@ -1,0 +1,20 @@
+{
+  "name": "personal-agent-onboarding",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Post-payment connect-on-page onboarding: pick your apps, OAuth each via Composio Connect Links, agent comes online fully wired.",
+  "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@composio/core": "^0.10.0"
+  },
+  "devDependencies": {
+    "@vercel/node": "^3.2.0",
+    "typescript": "^5.5.0"
+  }
+}
