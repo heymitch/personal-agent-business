@@ -47,7 +47,7 @@ ensure_ssh_key() {
     --data "$(jq -nc --arg n "$AGENT_NAME" --arg k "$SSH_PUBKEY" \
       '{name:$n,public_key:$k}')")"
   if echo "$resp" | jq -e '.error.code == "uniqueness_error"' >/dev/null 2>&1; then
-    # Key already registered — look it up by type+material (Hetzner strips comments)
+    # Key already registered, look it up by type+material (Hetzner strips comments)
     KEY_MATERIAL="$(printf '%s' "$SSH_PUBKEY" | awk '{print $1, $2}')"
     local list_resp
     list_resp="$($CURL -sS -H "Authorization: Bearer $HETZNER_TOKEN" \

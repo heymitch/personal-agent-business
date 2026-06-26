@@ -37,7 +37,7 @@
 # ============================================================================
 
 # Faithfully derived from the real factory template:
-#   /Users/heymitch/wingman/deploy/provision/cloud-init.sh.tmpl
+#   (adapted from the personal-agent provisioning template)
 # This is the single-box subset: stock Hermes + the public personal agent skin
 # + always-on, from PUBLIC sources only. The operator/queue factory, the
 # cloudflared connector, and the brain/email/app keys are intentionally removed
@@ -137,7 +137,7 @@ if hermes update --yes --backup >>"$LOG" 2>&1; then
     echo "[$(ts)] OK -> $(hermes --version 2>/dev/null | head -1); gateway active" >> "$LOG"
   else
     echo "[$(ts)] CRITICAL gateway down; retry" >> "$LOG"; hermes gateway restart >>"$LOG" 2>&1 || true; sleep 6
-    systemctl --user is-active --quiet hermes-gateway && echo "[$(ts)] recovered" >> "$LOG" || echo "[$(ts)] STILL DOWN — operator attention (backup taken)" >> "$LOG"
+    systemctl --user is-active --quiet hermes-gateway && echo "[$(ts)] recovered" >> "$LOG" || echo "[$(ts)] STILL DOWN, operator attention (backup taken)" >> "$LOG"
   fi
   if systemctl cat hermes-dashboard >/dev/null 2>&1; then sudo systemctl restart hermes-dashboard >>"$LOG" 2>&1 || true; sleep 4; echo "[$(ts)] dashboard: $(systemctl is-active hermes-dashboard 2>/dev/null)" >> "$LOG"; fi
 else

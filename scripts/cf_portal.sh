@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Stand up a Cloudflare Access login-link portal for the agent.
 # De-tenanted from PAO cf_portal.sh: inputs from .env (no per-client args),
-# adds --dry-run. The httpHostHeader:"localhost" rule is the 502 fix — keep it.
+# adds --dry-run. The httpHostHeader:"localhost" rule is the 502 fix, keep it.
 #
 # Usage: ./cf_portal.sh [--dry-run] [--target http://localhost:9119]
 # Reads: CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, AGENT_DOMAIN,
@@ -31,7 +31,7 @@ cf() { "$CURL" -sS -H "Authorization: Bearer $TOK" -H "Content-Type: application
 ok() { echo "$1" | jq -e '.success' >/dev/null 2>&1; }
 die() { echo "ERROR ($1): $(echo "$2" | jq -c '.errors' 2>/dev/null || echo "$2")" >&2; exit 1; }
 
-# Pre-build the tunnel ingress config — httpHostHeader:"localhost" is the 502 fix.
+# Pre-build the tunnel ingress config, httpHostHeader:"localhost" is the 502 fix.
 # -c (compact) keeps the body on one line, matching grep assertions in tests.
 TUNNEL_CFG="$(jq -cn \
   --arg h "$HOST" \
@@ -46,7 +46,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "   body: {\"name\":\"wingman-$NAME\",\"config_src\":\"cloudflare\"}"
   echo "3. PUT  $API/accounts/\$ACC/cfd_tunnel/<TID>/configurations"
   echo "   body: $TUNNEL_CFG"
-  echo "   (note httpHostHeader=localhost — the 502 fix)"
+  echo "   (note httpHostHeader=localhost, the 502 fix)"
   echo "4. POST $API/zones/<ZONE>/dns_records"
   echo "   body: CNAME $HOST -> <TID>.cfargotunnel.com proxied=true"
   echo "5. POST $API/accounts/$ACC/access/apps"
