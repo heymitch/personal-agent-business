@@ -43,7 +43,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "DRY-RUN Cloudflare portal call sequence for $HOST:"
   echo "1. GET  $API/zones?name=$DOMAIN"
   echo "2. POST $API/accounts/$ACC/cfd_tunnel"
-  echo "   body: {\"name\":\"wingman-$NAME\",\"config_src\":\"cloudflare\"}"
+  echo "   body: {\"name\":\"agent-$NAME\",\"config_src\":\"cloudflare\"}"
   echo "3. PUT  $API/accounts/\$ACC/cfd_tunnel/<TID>/configurations"
   echo "   body: $TUNNEL_CFG"
   echo "   (note httpHostHeader=localhost, the 502 fix)"
@@ -82,7 +82,7 @@ ZONE="$(cf "$API/zones?name=$DOMAIN" | jq -r '.result[0].id // empty')"
 
 # 2. Create remotely-managed tunnel (config_src=cloudflare returns id + connector token)
 R="$(cf -X POST "$API/accounts/$ACC/cfd_tunnel" \
-  --data "{\"name\":\"wingman-$NAME\",\"config_src\":\"cloudflare\"}")"
+  --data "{\"name\":\"agent-$NAME\",\"config_src\":\"cloudflare\"}")"
 ok "$R" || die "tunnel.create" "$R"
 TID="$(echo "$R" | jq -r '.result.id')"
 TTOKEN="$(echo "$R" | jq -r '.result.token')"

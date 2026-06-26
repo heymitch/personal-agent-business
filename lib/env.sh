@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Config lib: load + validate .env. Never echoes a secret value.
-# Ported from the proven Session 3 cockpit (wingman-cockpit/lib/env.sh).
+# Ported from the proven Session 3 cockpit.
 # shellcheck disable=SC1090
 
 load_env() {

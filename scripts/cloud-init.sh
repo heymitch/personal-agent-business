@@ -48,8 +48,9 @@ set -euxo pipefail
 exec > /var/log/wingman-provision.log 2>&1   # everything below is captured for debugging
 
 # The public personal agent skin (skin + dashboard theme + SOUL + skill pack).
-# This is a PUBLIC gist - copied verbatim from the real template/provision.sh.
-WINGMANIZE_URL='https://gist.githubusercontent.com/heymitch/3b9d17a0d3207d7013aeef06bcc3860a/raw/wingmanize.sh'
+# Point this at your own PUBLIC gist (raw URL) of the skin script. Placeholder
+# below -- set your own before provisioning.
+WINGMANIZE_URL='https://gist.githubusercontent.com/your-username/your-gist-id/raw/skin.sh'
 
 # OPTIONAL BONUS. Leave blank to use the Cloudflare path (default). Paste a
 # Tailscale auth key here to instead put this box on your private Tailscale

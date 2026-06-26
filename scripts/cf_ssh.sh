@@ -26,14 +26,14 @@ ok(){ echo "$1" | jq -e '.success' >/dev/null 2>&1; }
 
 if [ "$DRY_RUN" -eq 1 ]; then
   echo "DRY-RUN cf_ssh for $SSHHOST:"
-  echo "1. find tunnel wingman-$NAME"
+  echo "1. find tunnel agent-$NAME"
   echo "2. add ingress {hostname:$SSHHOST, service:ssh://localhost:22} before the 404 catchall"
   echo "3. CNAME $SSHHOST -> <TID>.cfargotunnel.com proxied"
   exit 0
 fi
 
-TID="$(cf "$API/accounts/$ACC/cfd_tunnel?is_deleted=false&per_page=200" | jq -r ".result[] | select(.name==\"wingman-$NAME\") | .id" | head -1)"
-[ -n "$TID" ] || { echo "no tunnel wingman-$NAME found (run cf_portal.sh first)" >&2; exit 1; }
+TID="$(cf "$API/accounts/$ACC/cfd_tunnel?is_deleted=false&per_page=200" | jq -r ".result[] | select(.name==\"agent-$NAME\") | .id" | head -1)"
+[ -n "$TID" ] || { echo "no tunnel agent-$NAME found (run cf_portal.sh first)" >&2; exit 1; }
 
 CUR="$(cf "$API/accounts/$ACC/cfd_tunnel/$TID/configurations" | jq ".result.config.ingress // []")"
 NEW="$(echo "$CUR" | jq --arg h "$SSHHOST" \
