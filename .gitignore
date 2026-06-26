@@ -19,6 +19,9 @@ build/
 installer/receiver/session-store*.json
 installer/receiver/checkout-queue.jsonl
 
+# agentize skill-packaging staging dir (operator's packaged skill bundles)
+.agentize-staging/
+
 # bats temp -- ignore contents but keep the dir (tracked via .gitkeep)
 test/tmp/*
 !test/tmp/.gitkeep

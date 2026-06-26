@@ -50,4 +50,14 @@ printf '%s\n' "$out" | grep -q "usage" \
   || { echo "FAIL: deploy_engine.sh did not print its usage/arg guard" >&2; exit 1; }
 echo "  usage-guarded OK"
 
+# agentize --scan-skills defaults to the operator's OWN box (AGENT_IP). With none
+# set it must error rather than touch anything; pointing it at the in-repo
+# operator-skills/ template dir gives a clean, network-free dry-run preview that
+# still emits the SKILLS-SCANNED token. Teethy: a missing token aborts.
+echo "== agentize.sh --scan-skills --dry-run (operator-skills template source) =="
+out="$( { "$HERE/agentize.sh" --scan-skills --source "$HERE/../operator-skills" --dry-run 2>&1 || true; } )"
+printf '%s\n' "$out" | grep -q "SKILLS-SCANNED count=" \
+  || { echo "FAIL: agentize.sh --scan-skills did not emit its SKILLS-SCANNED token" >&2; exit 1; }
+echo "  scan-preview OK"
+
 echo "DRY-RUN-ALL-OK"
