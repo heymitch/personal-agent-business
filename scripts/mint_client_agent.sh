@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# The dashboard mint action: provision a CLIENT agent on demand (operator-clicked,
+# no Stripe gate). It drives the vendored provisioning chain + the SHIPPED Composio
+# session engine:
+#
+#   1. derive the per-PERSON-email user_id  (installer/scripts/mint-userid.ts;
+#      the SHIPPED formula, account slug NEVER enters the hash)
+#   2. name the box/URL <person-slug>-<account-slug>.<operator-domain>
+#      (the account slug is naming only; blank account => omit the segment)
+#   3. append a mint-request line to the queue (NOT a Stripe event)
+#   4. provision the Hetzner box  (scripts/provision.sh -> PROVISION-OK ip=<ip>)
+#   5. open the Cloudflare gate    (scripts/cf_portal.sh -> PORTAL-READY)
+#   6. create the Tool Router session bound to that user_id and persist
+#      userId -> sessionId  (installer/scripts/mint-session.ts; the SHIPPED store)
+#   7. surface the client's onboarding link  (/?user=<id>)
+#
+# Brain key, Hetzner box, Cloudflare gate, and the session all flow through the
+# vendored code. Secrets come ONLY from the loaded env; none is printed. Success
+# token (mutation-proven): MINT-OK user_id=<id> ip=<ip>.
+#
+# --dry-run prints the computed per-email id, the /?user=<id> connect URL, the
+# <person>-<account> box name, and the would-be queue line; it touches NOTHING.
+#
+# Usage: mint_client_agent.sh [--dry-run] --email <e> --person-name <n> [--client-account <a>]
+# shellcheck source-path=SCRIPTDIR/..
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$HERE/.." && pwd)"
+# shellcheck source=lib/env.sh
+. "$HERE/../lib/env.sh"
+[ -f "$HERE/../.env" ] && load_env "$HERE/../.env" || true
+
+DRY_RUN=0
+EMAIL=""
+PERSON_NAME=""
+CLIENT_ACCOUNT=""
+while [ $# -gt 0 ]; do case "$1" in
+  --dry-run) DRY_RUN=1; shift;;
+  --email) EMAIL="${2:-}"; shift 2;;
+  --person-name) PERSON_NAME="${2:-}"; shift 2;;
+  --client-account) CLIENT_ACCOUNT="${2:-}"; shift 2;;
+  *) echo "unknown arg: $1" >&2; exit 2;;
+esac; done
+
+usage() { echo "usage: mint_client_agent.sh [--dry-run] --email <e> --person-name <n> [--client-account <a>]" >&2; }
+[ -n "$EMAIL" ] || { echo "ERROR: --email is required" >&2; usage; exit 2; }
+[ -n "$PERSON_NAME" ] || { echo "ERROR: --person-name is required" >&2; usage; exit 2; }
+
+# slugify: lowercase, spaces/punct -> single dash, trim leading/trailing dashes.
+slugify() {
+  printf '%s' "$1" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
+}
+
+PERSON_SLUG="$(slugify "$PERSON_NAME")"
+ACCOUNT_SLUG=""
+[ -n "$CLIENT_ACCOUNT" ] && ACCOUNT_SLUG="$(slugify "$CLIENT_ACCOUNT")"
+
+# Box/URL name: <person>-<account> when an account is given, else just <person>.
+# The account slug is NAMING only; it never enters the user_id hash.
+if [ -n "$ACCOUNT_SLUG" ]; then
+  BOX_NAME="${PERSON_SLUG}-${ACCOUNT_SLUG}"
+else
+  BOX_NAME="${PERSON_SLUG}"
+fi
+DOMAIN="${AGENT_DOMAIN:-example.com}"
+BOX_FQDN="${BOX_NAME}.${DOMAIN}"
+
+# Per-PERSON-email user_id via the SHIPPED user-id.ts (no slug in the hash).
+INSTALLER="$ROOT/installer"
+TSX="${TSX:-npx tsx}"
+USER_ID="$($TSX "$INSTALLER/scripts/mint-userid.ts" "$EMAIL")"
+[ -n "$USER_ID" ] || { echo "ERROR: failed to derive user_id" >&2; exit 1; }
+
+ONB="${ONBOARDER_BASE_URL:-https://onboarding.${DOMAIN}}"
+CONNECT_URL="${ONB%/}/?user=${USER_ID}"
+
+# The queue line is a mint REQUEST (on-demand, operator-clicked), NOT a Stripe
+# event. The receiver/processor reads email + person-slug + account-slug; the id
+# is reproduced from email downstream, so the binding stays single-sourced.
+QUEUE="${CHECKOUT_QUEUE:-$INSTALLER/receiver/checkout-queue.jsonl}"
+queue_line() {
+  printf '{"at":"%s","source":"operator-mint","email":"%s","personSlug":"%s","accountSlug":"%s","box":"%s"}' \
+    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$EMAIL" "$PERSON_SLUG" "$ACCOUNT_SLUG" "$BOX_NAME"
+}
+
+if [ "$DRY_RUN" -eq 1 ]; then
+  echo "DRY-RUN mint_client_agent for ${EMAIL}"
+  echo "user_id=${USER_ID}"
+  echo "box=${BOX_NAME}  fqdn=${BOX_FQDN}"
+  echo "connect_url=${CONNECT_URL}"
+  echo "queue<-${QUEUE}: $(queue_line)"
+  echo "would: provision.sh --dry-run; cf_portal.sh --dry-run; mint-session (create+persist userId->sessionId)"
+  exit 0
+fi
+
+# --- REAL on-demand mint --------------------------------------------------------
+require_env HETZNER_TOKEN COMPOSIO_API_KEY
+
+mkdir -p "$(dirname "$QUEUE")"
+queue_line >> "$QUEUE"; printf '\n' >> "$QUEUE"
+
+# 1. Provision the box (named for this person/account). MINT_FAKE_IP short-circuits
+#    the box IP in tests so no real Hetzner box is ever created.
+if [ -n "${MINT_FAKE_IP:-}" ]; then
+  IP="$MINT_FAKE_IP"
+else
+  PROV_OUT="$(AGENT_NAME="$BOX_NAME" "$HERE/provision.sh")"
+  IP="$(printf '%s\n' "$PROV_OUT" | sed -n 's/.*PROVISION-OK .*ip=\([0-9.]*\).*/\1/p' | head -1)"
+  [ -n "$IP" ] || { echo "ERROR: provision did not return an ip" >&2; exit 1; }
+  # 2. Open the Cloudflare gate for this box name.
+  AGENT_NAME="$BOX_NAME" "$HERE/cf_portal.sh" >/dev/null || true
+fi
+
+# 3. Create the Tool Router session bound to the per-email user_id and persist
+#    userId -> sessionId (the SHIPPED engine; GR2: create once here, expand later).
+$TSX "$INSTALLER/scripts/mint-session.ts" "$USER_ID" >/dev/null
+
+echo "Onboarding link for ${PERSON_NAME}: ${CONNECT_URL}"
+echo "MINT-OK user_id=${USER_ID} ip=${IP}"

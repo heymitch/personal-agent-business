@@ -22,6 +22,12 @@ echo "== cf_ssh.sh --dry-run =="
 echo "== deploy_surfaces.sh --dry-run =="
 "$HERE/deploy_surfaces.sh" --dry-run
 
+echo "== mint_client_agent.sh --dry-run =="
+# The on-demand mint action. Dry-run derives the per-email user_id (via the
+# vendored user-id.ts), the <person>-<account> box name, and the connect URL.
+# It touches no API and spends nothing; sample args drive the preview.
+"$HERE/mint_client_agent.sh" --dry-run --email "preview@example.com" --person-name "Preview" --client-account "demo" >/dev/null
+
 # install_connector / configure_box / move_up have no --dry-run API path. They are
 # arg-validated via their no-args usage guard. This MUST be teethy: capture the
 # output, then assert "usage" with a form that EXITS NON-ZERO when the guard is
@@ -35,5 +41,13 @@ for s in install_connector.sh configure_box.sh move_up.sh; do
     || { echo "FAIL: $s did not print its usage/arg guard" >&2; exit 1; }
   echo "  usage-guarded OK"
 done
+
+# deploy_engine needs a live box IP (AGENT_IP). With none set, even --dry-run must
+# print its usage guard rather than touch anything. Same teethy form as above.
+echo "== deploy_engine.sh (arg check, no AGENT_IP) =="
+out="$( { env -u AGENT_IP "$HERE/deploy_engine.sh" --dry-run 2>&1 || true; } )"
+printf '%s\n' "$out" | grep -q "usage" \
+  || { echo "FAIL: deploy_engine.sh did not print its usage/arg guard" >&2; exit 1; }
+echo "  usage-guarded OK"
 
 echo "DRY-RUN-ALL-OK"

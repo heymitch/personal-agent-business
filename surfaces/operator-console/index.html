@@ -4,13 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!--
-    OPERATOR CONSOLE (the minting dashboard shell).
+    OPERATOR CONSOLE (the minting dashboard).
 
-    Slice 2 ships the SHELL only. The "Mint an agent" form is real, but its submit
-    is STUBBED: it posts to /api/mint, which returns 501 (not wired yet). Slice 3
-    replaces that stub with the real provisioning call (mint_client_agent.sh). Until
-    then the form shows a plain "not yet connected" notice. Nothing here fakes a
-    provision or pretends an agent was created.
+    The "Mint an agent" form posts to /api/mint, which runs the real provisioning
+    chain (scripts/mint_client_agent.sh): derive the per-person-email identity,
+    name the box <person-slug>-<account-slug>, provision the box + Cloudflare gate,
+    create + persist the Tool Router session, and return the client's onboarding
+    link. No Stripe gate in v1 (operator-clicked on a closed call). Nothing here
+    fakes a provision.
 
     Mint form fields (per spec):
       - Client account: OPTIONAL, FILLABLE DROPDOWN (combobox). Choose an existing
@@ -143,26 +144,26 @@
         personName:document.getElementById("personName").value.trim(),
         personEmail:document.getElementById("personEmail").value.trim(),
       };
-      // The submit is STUBBED. /api/mint returns 501 until Slice 3 wires real
-      // provisioning. Show a clear "not yet connected" notice. Never fake a result.
+      // /api/mint runs the real provisioning chain. On success it returns the
+      // minted identity and the client's onboarding link. Never fake a result.
+      notice.style.display="block";
+      notice.textContent="Minting "+payload.personName+"'s personal agent... this takes a few minutes.";
       try{
         const r=await fetch("/api/mint",{method:"POST",
           headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
         const j=await r.json().catch(()=>({}));
-        if(r.status===501){
-          notice.className="notice warn";
-          notice.textContent=(j&&j.error)||"Minting is not connected yet. This wires up in the next step (Slice 3).";
-          return;
-        }
         if(!r.ok){
           notice.className="notice warn";
           notice.textContent=(j&&j.error)||("Mint failed ("+r.status+").");
           return;
         }
-        // Slice 3 will render the real minted-agent result here.
+        // Render the real minted-agent result: the client's onboarding link.
         notice.className="notice";
         notice.style.display="block";
-        notice.textContent="Minted.";
+        const link=j&&j.connectUrl
+          ? '<br><a href="'+j.connectUrl+'">'+j.connectUrl+'</a>'
+          : "";
+        notice.innerHTML="Minted "+payload.personName+"'s agent. Send them this link to connect their apps:"+link;
       }catch(err){
         notice.className="notice warn";
         notice.textContent="Could not reach the mint endpoint: "+err.message;

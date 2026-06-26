@@ -15,6 +15,10 @@ build/
 *.log
 .DS_Store
 
+# receiver / engine runtime state (the box writes these; never commit)
+installer/receiver/session-store*.json
+installer/receiver/checkout-queue.jsonl
+
 # bats temp -- ignore contents but keep the dir (tracked via .gitkeep)
 test/tmp/*
 !test/tmp/.gitkeep
