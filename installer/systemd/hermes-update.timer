@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily Hermes self-update (keep the personal agent current)
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=900
+
+[Install]
+WantedBy=timers.target

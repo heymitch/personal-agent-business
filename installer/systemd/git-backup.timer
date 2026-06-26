@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily backup of the operator's agency state to the GitHub backup remote
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=1800
+
+[Install]
+WantedBy=timers.target

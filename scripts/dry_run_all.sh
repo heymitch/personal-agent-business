@@ -50,6 +50,14 @@ printf '%s\n' "$out" | grep -q "usage" \
   || { echo "FAIL: deploy_engine.sh did not print its usage/arg guard" >&2; exit 1; }
 echo "  usage-guarded OK"
 
+# deploy_maintenance installs the two DAILY timers and likewise needs a live box
+# IP. With none set, even --dry-run must print its usage guard. Same teethy form.
+echo "== deploy_maintenance.sh (arg check, no AGENT_IP) =="
+out="$( { env -u AGENT_IP "$HERE/deploy_maintenance.sh" --dry-run 2>&1 || true; } )"
+printf '%s\n' "$out" | grep -q "usage" \
+  || { echo "FAIL: deploy_maintenance.sh did not print its usage/arg guard" >&2; exit 1; }
+echo "  usage-guarded OK"
+
 # agentize --scan-skills defaults to the operator's OWN box (AGENT_IP). With none
 # set it must error rather than touch anything; pointing it at the in-repo
 # operator-skills/ template dir gives a clean, network-free dry-run preview that

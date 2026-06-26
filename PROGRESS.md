@@ -38,7 +38,12 @@ everything, one step at a time.
 - [ ] Your own always-on personal agent live (first charge ~EUR 7.50/mo -- you
       said yes before this ran)
 - [ ] Selling surfaces deployed (console + onboarding + landing)
+- [ ] Minting engine deployed to your box (receiver + reconcile timer)
 - [ ] On-demand client minting wired up
+
+### Phase 4 -- Keep it running
+- [ ] Daily maintenance timers installed (Hermes self-update + agency-state backup)
+- [ ] /doctor reports DOCTOR-OK (keys, box, engine, surfaces all green)
 
 ---
 

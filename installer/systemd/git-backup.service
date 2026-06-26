@@ -1,0 +1,10 @@
+[Unit]
+Description=Commit and push the operator's agency state (config/registry/skills, never secrets)
+
+[Service]
+Type=oneshot
+User=__SERVICE_USER__
+WorkingDirectory=__INSTALLER_ROOT__
+EnvironmentFile=-__PROVISION_ENV_FILE__
+Environment=BACKUP_DIR=__BACKUP_DIR__
+ExecStart=__INSTALLER_ROOT__/scripts/git-backup.sh

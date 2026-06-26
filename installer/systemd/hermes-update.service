@@ -1,0 +1,9 @@
+[Unit]
+Description=Update Hermes on this box (optionally fan out to the operator's client boxes)
+
+[Service]
+Type=oneshot
+User=__SERVICE_USER__
+WorkingDirectory=__INSTALLER_ROOT__
+EnvironmentFile=-__PROVISION_ENV_FILE__
+ExecStart=__INSTALLER_ROOT__/scripts/hermes-update.sh

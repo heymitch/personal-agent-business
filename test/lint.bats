@@ -3,7 +3,7 @@ load test_helper
 
 @test "shellcheck passes on all scripts and libs" {
   shopt -s nullglob
-  files=("$SCRIPTS_DIR"/*.sh "$LIB_DIR"/*.sh)
+  files=("$SCRIPTS_DIR"/*.sh "$LIB_DIR"/*.sh "$REPO_ROOT"/installer/scripts/*.sh)
   if [ ${#files[@]} -eq 0 ]; then skip "no scripts yet"; fi
   run shellcheck -x "${files[@]}"
   [ "$status" -eq 0 ]
@@ -11,7 +11,7 @@ load test_helper
 
 @test "bash -n parses all scripts and libs" {
   shopt -s nullglob
-  files=("$SCRIPTS_DIR"/*.sh "$LIB_DIR"/*.sh)
+  files=("$SCRIPTS_DIR"/*.sh "$LIB_DIR"/*.sh "$REPO_ROOT"/installer/scripts/*.sh)
   if [ ${#files[@]} -eq 0 ]; then skip "no scripts yet"; fi
   for f in "${files[@]}"; do
     run bash -n "$f"

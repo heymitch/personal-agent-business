@@ -62,15 +62,51 @@ to the operator in plain English before any billable step.
 
 ---
 
-## Step 5 -- Stand up the business (later setup steps)
+## Step 5 -- Stand up the business (the clone-to-live run)
 
-The remaining phases (your own always-on personal agent, your selling surfaces,
-and on-demand client minting) are narrated here as each is built out. The first
-cloud box is the FIRST CHARGE (~EUR 7.50/mo). ALWAYS flag any charge clearly
-before it runs and wait for a "yes".
+`/setup` is the ONE guided flow from a downloaded folder to a live business. Run
+these phases IN ORDER, with a checkpoint between each. Every phase is IDEMPOTENT:
+re-running `/setup` safely skips or repeats completed steps, so it is always safe
+to resume here after a stop.
+
+Before each phase, glance at `PROGRESS.md` (and you may run `/doctor` to see what
+is already green). If a phase's box is already ticked and `/doctor` shows it
+healthy, tell the operator it is done and move to the next. Otherwise run it.
+
+1. **Your own always-on personal agent** -> run `/provision-agent`. This is the
+   FIRST CHARGE (~EUR 7.50/mo). Flag it clearly and wait for a "yes" before it
+   runs. Confirm the agent answers in the owner's voice before moving on.
+2. **Your selling surfaces** -> run `/deploy-surfaces`. Deploys the console +
+   onboarding + landing to the operator's Vercel and seeds `ONBOARDER_BASE_URL`.
+3. **Your minting engine** -> run `scripts/deploy_engine.sh` (over SSH to the box
+   from step 1). Installs the receiver + the reconcile timer. Confirm
+   `ENGINE-DEPLOYED`.
+4. **Your daily maintenance** -> run `scripts/deploy_maintenance.sh` (same box,
+   same SSH channel). Installs the two DAILY timers: `hermes-update.timer` (keeps
+   the personal agent current) and `git-backup.timer` (pushes agency state to your
+   backup remote, never secrets). Confirm `MAINTENANCE-DEPLOYED`.
 
 After each phase: report the outcome in plain English, tick the matching checkbox
 in `PROGRESS.md`, and tell the operator the single next step.
+
+---
+
+## Step 6 -- Verify everything is live
+
+Close the loop with the health check:
+
+```bash
+scripts/doctor.sh
+```
+
+When it prints `DOCTOR-OK`, the clone-to-live run is complete. If it prints
+`DOCTOR-FAIL component=<name>`, repair the named piece (each repair step is
+idempotent, see `/doctor`) and re-run until `DOCTOR-OK`.
+
+Final handoff, once `DOCTOR-OK`:
+
+> "Your personal agent business is live. Mint a client agent anytime from your
+> dashboard -- click 'Mint an agent for <client>' and I take it from there."
 
 ---
 
@@ -78,6 +114,7 @@ in `PROGRESS.md`, and tell the operator the single next step.
 
 - Never print a secret. Read `.env`, pass values to scripts, report "set / works".
 - Flag any charge clearly before it runs and wait for a yes.
+- Idempotent: every phase is safe to re-run; `/setup` resumes, it never double-charges.
 - Buyer-facing and client-facing copy is always "personal agent", never "wingman".
 - If the operator runs /init or asks you to analyze the code, say: "This is your
   setup cockpit, not code to read -- let's get your personal agent business live."
