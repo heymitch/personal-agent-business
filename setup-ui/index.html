@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Personal Agent Business Setup</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d26;
+    --border: #2e3246;
+    --accent: #4f8ef7;
+    --accent-ok: #3ecf8e;
+    --accent-err: #e05252;
+    --accent-warn: #f7b94f;
+    --text: #e8eaf0;
+    --text-muted: #8b92a8;
+    --input-bg: #0f1117;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .app-shell { max-width: 720px; margin: 0 auto; padding: 32px 24px 80px; }
+  .site-header { margin-bottom: 40px; }
+  .site-header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.4px; }
+  .site-header p { color: var(--text-muted); margin-top: 6px; }
+  .badge-local {
+    display: inline-block;
+    background: #1e2a1a;
+    color: var(--accent-ok);
+    border: 1px solid #2e4a2a;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    padding: 2px 8px;
+    margin-top: 10px;
+  }
+  .progress-bar-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .progress-track { flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.4s ease; }
+  .progress-label { font-size: 13px; color: var(--text-muted); white-space: nowrap; min-width: 120px; text-align: right; }
+  .section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .section-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .section-header:hover { background: rgba(79,142,247,0.04); }
+  .section-title { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .section-done-badge {
+    font-size: 11px;
+    font-weight: 600;
+    background: #1a2e22;
+    color: var(--accent-ok);
+    border: 1px solid #2e4a2a;
+    border-radius: 4px;
+    padding: 2px 8px;
+    display: none;
+  }
+  .section-done-badge.visible { display: inline-block; }
+  .section-toggle-icon { color: var(--text-muted); font-size: 18px; transition: transform 0.2s; flex-shrink: 0; }
+  .section-card.collapsed .section-toggle-icon { transform: rotate(-90deg); }
+  .section-body { padding: 24px; display: block; }
+  .section-card.collapsed .section-body { display: none; }
+  .field-group { margin-bottom: 22px; }
+  .field-group:last-of-type { margin-bottom: 0; }
+  .field-label { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .field-label code {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    color: var(--accent);
+    background: rgba(79,142,247,0.1);
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+  .badge-required {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent-warn);
+    background: rgba(247,185,79,0.12);
+    border-radius: 3px;
+    padding: 1px 5px;
+    letter-spacing: 0.3px;
+  }
+  .badge-optional {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: rgba(139,146,168,0.12);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+  .field-help { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; line-height: 1.5; }
+  .field-help a { color: var(--accent); text-decoration: none; }
+  .field-help a:hover { text-decoration: underline; }
+  .input-row { display: flex; gap: 8px; align-items: center; }
+  .field-input {
+    flex: 1;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 14px;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: "SFMono-Regular", Consolas, monospace;
+  }
+  .field-input:focus { border-color: var(--accent); }
+  .field-input.is-set { border-color: #2e4a2a; }
+  .field-input[type="text"] { font-family: inherit; }
+  .reveal-btn {
+    background: var(--border);
+    border: none;
+    border-radius: 6px;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 9px 12px;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .reveal-btn:hover { background: #3e4460; }
+  .test-btn {
+    background: rgba(79,142,247,0.12);
+    border: 1px solid rgba(79,142,247,0.3);
+    border-radius: 6px;
+    color: var(--accent);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 14px;
+    transition: background 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .test-btn:hover { background: rgba(79,142,247,0.22); }
+  .test-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .gen-btn {
+    background: rgba(62,207,142,0.12);
+    border: 1px solid rgba(62,207,142,0.3);
+    border-radius: 6px;
+    color: var(--accent-ok);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 14px;
+    transition: background 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .gen-btn:hover { background: rgba(62,207,142,0.22); }
+  .gen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .gen-result { font-size: 12px; margin-top: 6px; padding: 6px 10px; border-radius: 5px; display: none; }
+  .gen-result.ok { background: rgba(62,207,142,0.1); color: var(--accent-ok); display: block; }
+  .gen-result.fail { background: rgba(224,82,82,0.1); color: var(--accent-err); display: block; }
+  .test-result { font-size: 12px; margin-top: 6px; padding: 6px 10px; border-radius: 5px; display: none; }
+  .test-result.ok { background: rgba(62,207,142,0.1); color: var(--accent-ok); display: block; }
+  .test-result.fail { background: rgba(224,82,82,0.1); color: var(--accent-err); display: block; }
+  .set-indicator { font-size: 12px; color: var(--text-muted); margin-top: 5px; display: none; }
+  .set-indicator.visible { display: block; }
+  .set-indicator.is-set { color: var(--accent-ok); }
+  .section-actions { margin-top: 22px; display: flex; align-items: center; gap: 14px; }
+  .save-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 7px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 22px;
+    transition: background 0.15s, opacity 0.15s;
+  }
+  .save-btn:hover { background: #3a7af0; }
+  .save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .save-status { font-size: 13px; color: var(--text-muted); display: none; }
+  .save-status.saved { color: var(--accent-ok); display: inline; }
+  .save-status.error { color: var(--accent-err); display: inline; }
+  .done-section {
+    background: var(--surface);
+    border: 1px solid #2e4a2a;
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    margin-top: 8px;
+    text-align: center;
+  }
+  .done-section h2 { font-size: 20px; margin-bottom: 10px; }
+  .done-section p { color: var(--text-muted); margin-bottom: 20px; }
+  .done-btn {
+    background: var(--accent-ok);
+    border: none;
+    border-radius: 7px;
+    color: #0a1a0f;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px 32px;
+    transition: background 0.15s;
+  }
+  .done-btn:hover { background: #35b87a; }
+  .done-message {
+    margin-top: 18px;
+    background: rgba(62,207,142,0.08);
+    border: 1px solid rgba(62,207,142,0.25);
+    border-radius: 8px;
+    color: var(--accent-ok);
+    font-size: 14px;
+    padding: 14px 18px;
+    display: none;
+    line-height: 1.6;
+  }
+  .done-message.visible { display: block; }
+  .missing-warning {
+    background: rgba(247,185,79,0.08);
+    border: 1px solid rgba(247,185,79,0.3);
+    border-radius: 7px;
+    color: var(--accent-warn);
+    font-size: 13px;
+    margin-bottom: 24px;
+    padding: 12px 16px;
+    display: none;
+  }
+  .missing-warning.visible { display: block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <header class="site-header">
+    <h1>Personal Agent Business Setup</h1>
+    <p>Fill in your operator credentials below and they are written directly to your <code>.env</code>. Nothing leaves your machine.</p>
+    <span class="badge-local">100% LOCAL &mdash; no data leaves this computer</span>
+  </header>
+
+  <div class="progress-bar-wrap">
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+    <div class="progress-label" id="progressLabel">Loading&hellip;</div>
+  </div>
+
+  <div class="missing-warning" id="missingWarning"></div>
+
+  <div id="formArea"><!-- sections injected here --></div>
+
+  <div class="done-section">
+    <h2>All done?</h2>
+    <p>When every credential is in, click below. Your <code>.env</code> is saved and the server shuts down cleanly.</p>
+    <button class="done-btn" id="doneBtn">Write &amp; close &mdash; I&rsquo;m ready to set up</button>
+    <div class="done-message" id="doneMsg"></div>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ---- Token: read from URL -----------------------------------------------
+  const urlParams = new URLSearchParams(window.location.search);
+  const TOKEN = urlParams.get('t') || '';
+
+  // ---- API helpers ---------------------------------------------------------
+  async function apiFetch(path, opts = {}) {
+    const sep = path.includes('?') ? '&' : '?';
+    const url = path + sep + 't=' + encodeURIComponent(TOKEN);
+    const resp = await fetch(url, {
+      headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+      ...opts
+    });
+    return resp;
+  }
+
+  // ---- State ---------------------------------------------------------------
+  let schema = null;           // {groups, valid_keys}
+  let fieldValues = {};        // key -> current input value
+  let secretIsSet = {};        // key -> bool (secret already set in .env)
+
+  function renderHelp(text) {
+    return text.replace(/(https?:\/\/[^\s\)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  }
+
+  // ---- Progress ------------------------------------------------------------
+  function updateProgress() {
+    if (!schema) return;
+    let total = 0, filled = 0;
+    for (const g of schema.groups) {
+      for (const f of g.fields) {
+        if (!f.required) continue;
+        total++;
+        const val = fieldValues[f.key];
+        const alreadySet = secretIsSet[f.key];
+        if ((val && val.trim()) || alreadySet) filled++;
+      }
+    }
+    const pct = total ? Math.round(filled / total * 100) : 0;
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent = filled + ' of ' + total + ' required filled';
+  }
+
+  // ---- Build form ----------------------------------------------------------
+  function buildForm() {
+    const area = document.getElementById('formArea');
+    area.innerHTML = '';
+
+    schema.groups.forEach((group, gi) => {
+      const card = document.createElement('div');
+      card.className = 'section-card';
+      card.dataset.sectionIdx = gi;
+
+      const hdr = document.createElement('div');
+      hdr.className = 'section-header';
+      hdr.innerHTML = `
+        <div class="section-title">
+          ${escHtml(group.service)}
+          <span class="section-done-badge" id="doneBadge_${gi}">Done</span>
+        </div>
+        <span class="section-toggle-icon">&#9660;</span>
+      `;
+      hdr.addEventListener('click', () => { card.classList.toggle('collapsed'); });
+      card.appendChild(hdr);
+
+      const body = document.createElement('div');
+      body.className = 'section-body';
+
+      group.fields.forEach((f) => {
+        const isSecret = f.secret;
+        const curVal = f.value || '';
+        const isSet = f.is_set;
+
+        if (isSecret) {
+          secretIsSet[f.key] = isSet;
+        } else {
+          fieldValues[f.key] = curVal;
+        }
+
+        const fg = document.createElement('div');
+        fg.className = 'field-group';
+
+        const labelRow = document.createElement('div');
+        labelRow.className = 'field-label';
+        labelRow.innerHTML = `<code>${escHtml(f.key)}</code>
+          <span class="${f.required ? 'badge-required' : 'badge-optional'}">${f.required ? 'required' : 'optional'}</span>`;
+        fg.appendChild(labelRow);
+
+        if (f.help) {
+          const help = document.createElement('div');
+          help.className = 'field-help';
+          help.innerHTML = renderHelp(escHtml(f.help));
+          fg.appendChild(help);
+        }
+
+        const coaching = getCoachingCopy(f.key);
+        if (coaching) {
+          const cc = document.createElement('div');
+          cc.className = 'field-help';
+          cc.innerHTML = coaching;
+          fg.appendChild(cc);
+        }
+
+        const inputRow = document.createElement('div');
+        inputRow.className = 'input-row';
+
+        const inputType = isSecret ? 'password' : 'text';
+        const inp = document.createElement('input');
+        inp.type = inputType;
+        inp.className = 'field-input' + (isSet ? ' is-set' : '');
+        inp.id = 'field_' + f.key;
+        inp.placeholder = isSecret && isSet ? '(already set -- paste new value to update)' : (f.default || '');
+        inp.value = isSecret ? '' : curVal;
+        inp.autocomplete = 'off';
+        inp.spellcheck = false;
+
+        inp.addEventListener('input', () => {
+          fieldValues[f.key] = inp.value;
+          if (isSecret && inp.value) { secretIsSet[f.key] = false; }
+          updateProgress();
+        });
+
+        inp.addEventListener('blur', () => {
+          if (inp.value) { triggerSectionSave(gi, card); }
+        });
+
+        inputRow.appendChild(inp);
+
+        if (isSecret) {
+          const revBtn = document.createElement('button');
+          revBtn.type = 'button';
+          revBtn.className = 'reveal-btn';
+          revBtn.title = 'Show/hide';
+          revBtn.textContent = 'Show';
+          revBtn.addEventListener('click', () => {
+            inp.type = inp.type === 'password' ? 'text' : 'password';
+            revBtn.textContent = inp.type === 'password' ? 'Show' : 'Hide';
+          });
+          inputRow.appendChild(revBtn);
+        }
+
+        const testable = (f.key === 'HETZNER_TOKEN' || f.key === 'CLOUDFLARE_API_TOKEN');
+        if (testable) {
+          const service = f.key === 'HETZNER_TOKEN' ? 'hetzner' : 'cloudflare';
+          const testBtn = document.createElement('button');
+          testBtn.type = 'button';
+          testBtn.className = 'test-btn';
+          testBtn.id = 'testBtn_' + f.key;
+          testBtn.textContent = 'Test';
+          testBtn.addEventListener('click', () => runTest(service, f.key, testBtn));
+          inputRow.appendChild(testBtn);
+        }
+
+        const sshGennable = (f.key === 'SSH_PUBKEY');
+        if (sshGennable) {
+          const genBtn = document.createElement('button');
+          genBtn.type = 'button';
+          genBtn.className = 'gen-btn';
+          genBtn.id = 'genBtn_ssh_' + f.key;
+          genBtn.textContent = 'Generate for me';
+          genBtn.addEventListener('click', () => runSshGen(genBtn));
+          inputRow.appendChild(genBtn);
+        }
+
+        fg.appendChild(inputRow);
+
+        if (testable) {
+          const tr = document.createElement('div');
+          tr.className = 'test-result';
+          tr.id = 'testResult_' + f.key;
+          fg.appendChild(tr);
+        }
+
+        if (sshGennable) {
+          const gr = document.createElement('div');
+          gr.className = 'gen-result';
+          gr.id = 'genResult_ssh_' + f.key;
+          fg.appendChild(gr);
+        }
+
+        if (isSecret) {
+          const si = document.createElement('div');
+          si.className = 'set-indicator' + (isSet ? ' visible is-set' : '');
+          si.id = 'setInd_' + f.key;
+          si.textContent = isSet ? 'Already set in .env' : '';
+          fg.appendChild(si);
+        }
+
+        body.appendChild(fg);
+      });
+
+      const actions = document.createElement('div');
+      actions.className = 'section-actions';
+      const saveBtn = document.createElement('button');
+      saveBtn.type = 'button';
+      saveBtn.className = 'save-btn';
+      saveBtn.id = 'saveBtn_' + gi;
+      saveBtn.textContent = 'Save this section';
+      saveBtn.addEventListener('click', () => triggerSectionSave(gi, card));
+      actions.appendChild(saveBtn);
+
+      const saveStatus = document.createElement('span');
+      saveStatus.className = 'save-status';
+      saveStatus.id = 'saveStatus_' + gi;
+      actions.appendChild(saveStatus);
+
+      body.appendChild(actions);
+      card.appendChild(body);
+      area.appendChild(card);
+    });
+  }
+
+  // ---- Save section --------------------------------------------------------
+  async function triggerSectionSave(gi, card) {
+    const group = schema.groups[gi];
+    const payload = {};
+    let hasAnyValue = false;
+
+    group.fields.forEach(f => {
+      const inp = document.getElementById('field_' + f.key);
+      if (inp && inp.value.trim()) {
+        payload[f.key] = inp.value.trim();
+        hasAnyValue = true;
+      }
+    });
+
+    if (!hasAnyValue) return;
+
+    const saveBtn = document.getElementById('saveBtn_' + gi);
+    const saveStatus = document.getElementById('saveStatus_' + gi);
+
+    if (saveBtn) saveBtn.disabled = true;
+    if (saveStatus) { saveStatus.textContent = 'Saving...'; saveStatus.className = 'save-status saved'; }
+
+    try {
+      const resp = await apiFetch('/api/save', { method: 'POST', body: JSON.stringify(payload) });
+      const data = await resp.json();
+
+      if (resp.ok) {
+        if (saveStatus) { saveStatus.textContent = 'Saved'; saveStatus.className = 'save-status saved'; }
+        group.fields.forEach(f => {
+          if (f.secret && payload[f.key]) {
+            const si = document.getElementById('setInd_' + f.key);
+            const inp = document.getElementById('field_' + f.key);
+            if (si) { si.textContent = 'Set'; si.className = 'set-indicator visible is-set'; }
+            if (inp) inp.className = 'field-input is-set';
+            secretIsSet[f.key] = true;
+          }
+        });
+        checkSectionDone(gi);
+        updateProgress();
+        checkMissingRequired(data.missing_required || []);
+      } else {
+        if (saveStatus) { saveStatus.textContent = 'Error saving'; saveStatus.className = 'save-status error'; }
+      }
+    } catch (e) {
+      if (saveStatus) { saveStatus.textContent = 'Network error'; saveStatus.className = 'save-status error'; }
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+      setTimeout(() => {
+        if (saveStatus && saveStatus.textContent === 'Saved') { saveStatus.className = 'save-status'; }
+      }, 3000);
+    }
+  }
+
+  function checkSectionDone(gi) {
+    const group = schema.groups[gi];
+    const requiredFields = group.fields.filter(f => f.required);
+    if (!requiredFields.length) return;
+    const allDone = requiredFields.every(f => {
+      const val = fieldValues[f.key];
+      const isSet = secretIsSet[f.key];
+      return (val && val.trim()) || isSet;
+    });
+    const badge = document.getElementById('doneBadge_' + gi);
+    if (badge) badge.className = 'section-done-badge' + (allDone ? ' visible' : '');
+  }
+
+  function checkMissingRequired(missing) {
+    const w = document.getElementById('missingWarning');
+    if (missing.length === 0) { w.className = 'missing-warning'; return; }
+    w.className = 'missing-warning visible';
+    w.textContent = 'Still needed before you can run setup: ' + missing.join(', ');
+  }
+
+  // ---- Test credential -----------------------------------------------------
+  async function runTest(service, key, btn) {
+    const inp = document.getElementById('field_' + key);
+    const tokenVal = inp ? inp.value.trim() : '';
+    const resultEl = document.getElementById('testResult_' + key);
+
+    if (!tokenVal && !secretIsSet[key]) {
+      if (resultEl) { resultEl.className = 'test-result fail'; resultEl.textContent = 'Paste the token first, then click Test.'; }
+      return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    if (resultEl) { resultEl.className = 'test-result'; resultEl.textContent = ''; }
+
+    try {
+      const resp = await apiFetch('/api/test/' + service, { method: 'POST', body: JSON.stringify({ token: tokenVal }) });
+      const data = await resp.json();
+      if (resultEl) {
+        resultEl.className = 'test-result ' + (data.ok ? 'ok' : 'fail');
+        resultEl.textContent = data.message;
+      }
+    } catch (e) {
+      if (resultEl) { resultEl.className = 'test-result fail'; resultEl.textContent = 'Could not reach the test endpoint.'; }
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Test';
+    }
+  }
+
+  // ---- SSH keygen ----------------------------------------------------------
+  async function runSshGen(btn) {
+    const allGenBtns = document.querySelectorAll('[id^="genBtn_ssh_"]');
+    allGenBtns.forEach(b => { b.disabled = true; b.innerHTML = '<span class="spinner"></span>'; });
+
+    ['SSH_PUBKEY'].forEach(k => {
+      const el = document.getElementById('genResult_ssh_' + k);
+      if (el) { el.className = 'gen-result'; el.textContent = ''; }
+    });
+
+    try {
+      const resp = await apiFetch('/api/generate-ssh', { method: 'POST', body: '{}' });
+      const data = await resp.json();
+
+      ['SSH_PUBKEY'].forEach(k => {
+        const el = document.getElementById('genResult_ssh_' + k);
+        if (!el) return;
+        if (data.ok) {
+          el.className = 'gen-result ok';
+          el.textContent = 'SSH key generated and saved (fingerprint: ' + (data.fingerprint || data.path) + ')';
+          secretIsSet[k] = true;
+          const si = document.getElementById('setInd_' + k);
+          const inp = document.getElementById('field_' + k);
+          if (si) { si.textContent = 'Set'; si.className = 'set-indicator visible is-set'; }
+          if (inp) { inp.className = 'field-input is-set'; inp.placeholder = '(already set)'; }
+        } else {
+          el.className = 'gen-result fail';
+          el.textContent = data.message || 'SSH key generation failed.';
+        }
+      });
+      if (data.ok) updateProgress();
+    } catch (e) {
+      ['SSH_PUBKEY'].forEach(k => {
+        const el = document.getElementById('genResult_ssh_' + k);
+        if (el) { el.className = 'gen-result fail'; el.textContent = 'Could not reach the server.'; }
+      });
+    } finally {
+      allGenBtns.forEach(b => { b.disabled = false; b.textContent = 'Generate for me'; });
+    }
+  }
+
+  // ---- Done button ---------------------------------------------------------
+  document.getElementById('doneBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('doneBtn');
+    btn.disabled = true;
+    btn.textContent = 'Writing...';
+    try {
+      const resp = await apiFetch('/api/done', { method: 'POST', body: '{}' });
+      const data = await resp.json();
+      const msg = document.getElementById('doneMsg');
+      msg.className = 'done-message visible';
+      msg.innerHTML = '<strong>' + escHtml(data.message) + '</strong>';
+    } catch (_) {
+      const msg = document.getElementById('doneMsg');
+      msg.className = 'done-message visible';
+      msg.innerHTML = '<strong>Your .env is saved. You can close this tab.<br>Next: run <code>/setup</code> in Claude Code.</strong>';
+    }
+    btn.textContent = 'Done';
+  });
+
+  // ---- Load schema ---------------------------------------------------------
+  async function loadSchema() {
+    try {
+      const resp = await apiFetch('/api/schema');
+      if (!resp.ok) {
+        document.getElementById('formArea').innerHTML =
+          '<p style="color:var(--accent-err)">Could not load schema (HTTP ' + resp.status + '). Check that server.py is running.</p>';
+        return;
+      }
+      schema = await resp.json();
+      buildForm();
+      updateProgress();
+    } catch (e) {
+      document.getElementById('formArea').innerHTML =
+        '<p style="color:var(--accent-err)">Could not reach the setup server. Make sure setup-ui/server.py is running.</p>';
+    }
+  }
+
+  // ---- Coaching copy -------------------------------------------------------
+  function getCoachingCopy(key) {
+    const copy = {
+      HETZNER_TOKEN: 'Go to <a href="https://console.hetzner.cloud/" target="_blank" rel="noopener">console.hetzner.cloud</a> &rarr; your project &rarr; <strong>Security</strong> &rarr; <strong>API Tokens</strong> &rarr; <strong>Generate API Token</strong>. Choose <strong>Read &amp; Write</strong>, then Generate. Copy the token immediately &mdash; you only see it once.',
+      SSH_PUBKEY: 'Leave blank to auto-detect your SSH key, or click <strong>Generate for me</strong>. The provisioner uses this public key to connect to the cloud boxes. Your private key never leaves your machine.',
+      OPENAI_ADMIN_KEY: 'An OpenAI admin key (or OpenRouter key) with permission to create sub-keys. The factory uses it to mint a per-person brain key for each client agent. Generate it on your provider\'s API keys page and paste it here.',
+      OPENAI_BASE_URL: 'Leave as <code>https://openrouter.ai/api/v1</code> for OpenRouter (the default). An admin key cannot infer the endpoint, so this must be explicit. Change only if your provider differs.',
+      BRAIN_MODEL: 'The model ID your provider exposes. For OpenRouter, <code>openai/gpt-5.5</code> is the default. Browse others at <a href="https://openrouter.ai/models" target="_blank" rel="noopener">openrouter.ai/models</a>.',
+      AGENTMAIL_API_KEY: 'From your AgentMail dashboard &rarr; <strong>API Keys</strong>. Lets each agent send and receive mail from its own inbox.',
+      AGENTMAIL_INBOX: 'The inbox address the agent sends and receives from (e.g. <code>you@agentmail.to</code>).',
+      COMPOSIO_API_KEY: 'Your operator Composio API key, from the Composio dashboard &rarr; <strong>Settings &rarr; API Keys</strong>. Used to bind each client\'s own apps to their agent.',
+      ONBOARDER_BASE_URL: 'Set automatically after your first <code>/deploy-surfaces</code> run. Leave blank for now &mdash; it is the public URL of your onboarding page, used to build each client\'s connect link.',
+      SLACK_INVITE_ADDRESS: 'The address clients are invited to join Slack from (your ops inbox). Default is fine for most operators.',
+      CLOUDFLARE_API_TOKEN: 'In Cloudflare, go to <strong>My Profile &rarr; API Tokens &rarr; Create Token &rarr; Create Custom Token</strong>. Permissions: Zone:Read, DNS:Edit, Account:Cloudflare Tunnel:Edit, Account:Access:Apps and Policies:Edit. Use <strong>Test</strong> to confirm it works.',
+      CLOUDFLARE_ACCOUNT_ID: 'In the Cloudflare dashboard, open your domain &rarr; <strong>Overview</strong> &rarr; right sidebar <strong>Account ID</strong> &rarr; Copy.',
+      AGENT_DOMAIN: 'The operator domain you added to Cloudflare (e.g. <code>my-agents.com</code>). Each client agent lives at <code>&lt;person&gt;-&lt;account&gt;.AGENT_DOMAIN</code>.',
+      OWNER_EMAIL: 'The email Cloudflare sends a one-time login PIN to. Only this address can open the gated dashboards.',
+      VERCEL_TOKEN: 'From <a href="https://vercel.com/account/tokens" target="_blank" rel="noopener">Vercel &rarr; Account Settings &rarr; Tokens</a> &rarr; Create. Used to deploy your console, onboarding, and landing surfaces.',
+      VERCEL_ORG_ID: 'Your Vercel account or team id, from <strong>Vercel &rarr; Settings &rarr; General</strong>. Often inferred from your token, so this is optional.',
+      SLACK_BOT_TOKEN: 'From your Slack app (<a href="https://api.slack.com/apps" target="_blank" rel="noopener">api.slack.com/apps</a>): <strong>OAuth &amp; Permissions &rarr; Bot User OAuth Token</strong>. Starts with <code>xoxb-</code>.',
+      SLACK_APP_TOKEN: 'From your Slack app: <strong>Basic Information &rarr; App-Level Tokens &rarr; Generate Token</strong> with the <code>connections:write</code> scope. Starts with <code>xapp-</code>.',
+      SLACK_ALLOWED_USERS: 'Your Slack member ID (Profile &rarr; More &rarr; Copy member ID). Starts with <code>U</code>. Pre-approves you so you skip the pairing-code prompt.',
+    };
+    return copy[key] || null;
+  }
+
+  // ---- Escape HTML ---------------------------------------------------------
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  // ---- Boot ----------------------------------------------------------------
+  loadSchema();
+
+})();
+</script>
+</body>
+</html>

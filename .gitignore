@@ -1,0 +1,23 @@
+# Secrets -- NEVER commit. The only home for keys on the operator's machine.
+.env
+.env.local
+*.pem
+*.key
+id_ed25519*
+
+# Node / build artifacts (vendored installer + surfaces land in later slices)
+node_modules/
+dist/
+build/
+.vercel/
+
+# Local runtime / logs
+*.log
+.DS_Store
+
+# bats temp -- ignore contents but keep the dir (tracked via .gitkeep)
+test/tmp/*
+!test/tmp/.gitkeep
+
+# stray speakeasy hook artifact
+build-log.md
