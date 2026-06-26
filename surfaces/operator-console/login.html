@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Operator access</title>
+<style>
+  :root{ --bg:#0d0e0c; --ink:#eceae2; --ink-2:#9b9a8f; --acid:#c7f04a; --acid-dim:#3a4520; --line:#23241f; --card:#141611; --bad:#ff6b6b; }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--ink);font:15px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;}
+  .card{width:100%;max-width:380px;padding:36px;border:1px solid var(--line);border-radius:3px;background:var(--card);}
+  .eyebrow{color:var(--acid);font-size:12px;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+  .dot{width:7px;height:7px;background:var(--acid);border-radius:50%;display:inline-block;}
+  h1{font-size:24px;margin:0 0 22px;letter-spacing:-.01em;}
+  label{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);margin-bottom:7px;}
+  input{width:100%;padding:12px;background:var(--bg);border:1px solid var(--line);border-radius:2px;color:var(--ink);font:inherit;outline:0;}
+  input:focus{border-color:var(--acid-dim);}
+  button{width:100%;margin-top:16px;padding:13px;background:var(--acid);color:#11130a;border:0;border-radius:2px;font:inherit;font-weight:700;cursor:pointer;}
+  button:disabled{opacity:.5;}
+  .err{color:var(--bad);font-size:12px;min-height:1em;margin-top:9px;}
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="eyebrow"><span class="dot"></span> Operator only</div>
+    <h1>Sign in</h1>
+    <form id="f">
+      <label for="pw">Password</label>
+      <input id="pw" type="password" required autocomplete="current-password" autofocus />
+      <div class="err" id="e"></div>
+      <button id="b" type="submit">Enter</button>
+    </form>
+  </main>
+<script>
+const f=document.getElementById('f'),e=document.getElementById('e'),b=document.getElementById('b');
+f.addEventListener('submit',async ev=>{
+  ev.preventDefault(); e.textContent=''; b.disabled=true; b.textContent='Checking...';
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({password:document.getElementById('pw').value}),credentials:'same-origin'});
+    if(r.ok){ location = new URLSearchParams(location.search).get('next') || '/'; }
+    else { e.textContent = r.status===429?'Too many attempts. Wait a minute.':'Wrong password.';
+           b.disabled=false; b.textContent='Enter'; }
+  }catch{ e.textContent='Network error.'; b.disabled=false; b.textContent='Enter'; }
+});
+</script>
+</body>
+</html>

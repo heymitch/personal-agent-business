@@ -2,16 +2,20 @@
 # Deploy the three client-facing surfaces to the operator's OWN Vercel:
 #   onboarding        the connect-on-page (vendored from personal-agent-onboarding)
 #   landing           the public offer page the operator brands
-#   operator-console  the minting dashboard (mint button stubbed until Slice 3)
+#   operator-console  the 3-tab management dashboard (Dashboard/New agent/Fleet),
+#                     a password-gated thin proxy to the box receiver
 #
 # Each surface is a static + serverless Vercel project. We push it with
 # `vercel deploy --prod`, passing the operator token on the flag (never echoed).
 # COMPOSIO_API_KEY is set into the onboarding project's Vercel env (its serverless
-# api/ functions need it). --dry-run constructs the exact commands with every
-# secret collapsed to a byte count and touches no real API.
+# api/ functions need it). The console's runtime env (PAO_PASSWORD_HASH,
+# SESSION_SECRET, MINT_RECEIVER_URL, MINT_SECRET) is pushed when set -- each piped
+# on stdin so no secret lands on the command line. --dry-run constructs the exact
+# commands with every secret collapsed to a byte count and touches no real API.
 #
 # Usage: ./deploy_surfaces.sh [--dry-run]
-# Reads: VERCEL_TOKEN, COMPOSIO_API_KEY  (from .env or environment)
+# Reads: VERCEL_TOKEN, COMPOSIO_API_KEY  (required, from .env or environment)
+#   plus optional console env: PAO_PASSWORD_HASH, SESSION_SECRET, MINT_RECEIVER_URL, MINT_SECRET
 # shellcheck source-path=SCRIPTDIR/..
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -45,6 +49,15 @@ if [ "$DRY_RUN" -eq 1 ]; then
     if [ "$s" = "onboarding" ]; then
       echo "   vercel env add COMPOSIO_API_KEY production --token <$(redact_len "$VERCEL_TOKEN") token>"
     fi
+    if [ "$s" = "operator-console" ]; then
+      for v in PAO_PASSWORD_HASH SESSION_SECRET MINT_RECEIVER_URL MINT_SECRET; do
+        if [ -n "${!v:-}" ]; then
+          echo "   vercel env add $v production = $(redact_len "${!v}")"
+        else
+          echo "   (console env $v unset; skipped)"
+        fi
+      done
+    fi
     echo "   vercel deploy --prod --yes --token <$(redact_len "$VERCEL_TOKEN") token>"
   done
   echo "(dry-run only: nothing deployed, no secret printed)"
@@ -64,6 +77,18 @@ deploy_one() {
     # into the project env (piped on stdin so it never lands on the command line).
     printf '%s' "$COMPOSIO_API_KEY" | \
       ( cd "$dir" && "$VERCEL" env add COMPOSIO_API_KEY production --token "$VERCEL_TOKEN" --yes >/dev/null 2>&1 || true )
+  fi
+  if [ "$surface" = "operator-console" ]; then
+    # The console is a thin gated proxy. Push only the runtime env vars that are set; each is piped
+    # on stdin so a secret never lands on the command line. MINT_RECEIVER_URL points the proxies at
+    # the box receiver; PAO_PASSWORD_HASH/SESSION_SECRET gate the wall; MINT_SECRET signs the
+    # proxy->receiver calls.
+    local v
+    for v in PAO_PASSWORD_HASH SESSION_SECRET MINT_RECEIVER_URL MINT_SECRET; do
+      [ -n "${!v:-}" ] || continue
+      printf '%s' "${!v}" | \
+        ( cd "$dir" && "$VERCEL" env add "$v" production --token "$VERCEL_TOKEN" --yes >/dev/null 2>&1 || true )
+    done
   fi
   url="$( cd "$dir" && "$VERCEL" deploy --prod --yes --token "$VERCEL_TOKEN" 2>/dev/null | tail -n1 || true )"
   [ -n "$url" ] || url="(deployed: see Vercel dashboard)"

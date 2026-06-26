@@ -9,14 +9,14 @@ describe("userIdForPurchase (the SHIPPED per-person-email binding, unchanged)", 
   });
 
   it("the SAME email always maps to the SAME id (the binding is deterministic)", () => {
-    expect(userIdForPurchase("colin@example.com")).toBe(userIdForPurchase("colin@example.com"));
+    expect(userIdForPurchase("dana@example.com")).toBe(userIdForPurchase("dana@example.com"));
   });
 
   it("the account slug never enters the hash (different account, same email = same id)", () => {
     // The mint passes an account slug for naming the box/URL, NOT into this hash.
     // Proven by the formula taking only `email`: there is no slug parameter.
-    const a = userIdForPurchase("colin@example.com");
-    const b = userIdForPurchase("colin@example.com");
+    const a = userIdForPurchase("dana@example.com");
+    const b = userIdForPurchase("dana@example.com");
     expect(a).toBe(b);
     expect(a.startsWith("wm-")).toBe(true);
   });

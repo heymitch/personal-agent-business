@@ -1,174 +1,484 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!--
-    OPERATOR CONSOLE (the minting dashboard).
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Personal Agent · Operator Console</title>
+<style>
+  :root{
+    --bg:#0d0e0c; --ink:#eceae2; --ink-2:#9b9a8f; --acid:#c7f04a; --acid-dim:#3a4520;
+    --line:#23241f; --card:#141611; --amber:#f0c14a; --bad:#ff6b6b; --good:#9ad94a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;}
+  header{display:flex;align-items:center;gap:20px;padding:16px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(13,14,12,.92);backdrop-filter:blur(6px);z-index:5;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:600;letter-spacing:-.01em;}
+  .brand .dot{width:8px;height:8px;background:var(--acid);border-radius:50%;}
+  nav{display:flex;gap:4px;}
+  .tab{background:transparent;border:1px solid transparent;color:var(--ink-2);border-radius:2px;padding:7px 14px;font:inherit;cursor:pointer;}
+  .tab:hover{color:var(--ink);}
+  .tab.on{color:var(--acid);border-color:var(--acid-dim);background:#161a0c;}
+  .sp{flex:1}
+  .logout{background:transparent;border:1px solid var(--line);color:var(--ink-2);border-radius:2px;padding:7px 11px;font:inherit;cursor:pointer;}
+  .logout:hover{border-color:var(--bad);color:#ffb4b4;}
+  main{max-width:1080px;margin:0 auto;padding:30px 22px 90px;}
+  .panel{display:none;} .panel.on{display:block;}
+  h1{font-size:28px;margin:0 0 4px;letter-spacing:-.01em;}
+  .sub{color:var(--ink-2);margin:0 0 24px;}
 
-    The "Mint an agent" form posts to /api/mint, which runs the real provisioning
-    chain (scripts/mint_client_agent.sh): derive the per-person-email identity,
-    name the box <person-slug>-<account-slug>, provision the box + Cloudflare gate,
-    create + persist the Tool Router session, and return the client's onboarding
-    link. No Stripe gate in v1 (operator-clicked on a closed call). Nothing here
-    fakes a provision.
+  /* dashboard */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:22px;}
+  .teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:13px;margin-bottom:24px;}
+  .tpl{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:16px 18px;position:relative;}
+  .tpl.retainer{border-color:var(--acid-dim);}
+  .tpl-h{display:flex;align-items:baseline;gap:9px;margin-bottom:10px;}
+  .tpl-h .tn{font-size:16px;font-weight:600;letter-spacing:-.01em;}
+  .tpl-h .tg{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--acid);border:1px solid var(--acid-dim);border-radius:2px;padding:2px 6px;}
+  .tpl-h .tg.self{color:var(--ink-2);border-color:var(--line);}
+  .tpl-rev{font-size:28px;letter-spacing:-.02em;line-height:1;}
+  .tpl-rev .per{font-size:13px;color:var(--ink-2);letter-spacing:0;}
+  .tpl-rows{margin-top:13px;display:flex;flex-direction:column;gap:6px;}
+  .tpl-r{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-2);}
+  .tpl-r b{color:var(--ink);font-variant-numeric:tabular-nums;}
+  .tpl-r b.pos{color:var(--good);} .tpl-r b.neg{color:var(--bad);} .tpl-r b.acid{color:var(--acid);}
+  .tpl-note{margin-top:13px;padding-top:11px;border-top:1px solid var(--line);font-size:11px;color:var(--ink-2);line-height:1.45;}
+  .tpl-note b{color:var(--acid);}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:16px 18px;}
+  .stat .k{color:var(--ink-2);font-size:11px;letter-spacing:.1em;text-transform:uppercase;}
+  .stat .v{font-size:26px;margin-top:6px;letter-spacing:-.01em;}
+  .v.pos{color:var(--good);} .v.neg{color:var(--bad);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);}
+  th:first-child,td:first-child{text-align:left;}
+  th{color:var(--ink-2);font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;}
+  td .who{color:var(--ink);} td .sub2{color:var(--ink-2);font-size:11px;}
+  .roi-pos{color:var(--good);} .roi-neg{color:var(--bad);}
+  /* charts (Tufte: minimal ink, direct labels, no gridlines) */
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+  @media(max-width:760px){.charts{grid-template-columns:1fr;}}
+  .chart{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:15px 16px;}
+  .chart .ct{color:var(--ink-2);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;}
+  .chart svg{width:100%;height:auto;display:block;overflow:visible;}
+  .ax{fill:var(--ink-2);font-size:10px;} .vl{fill:var(--ink);font-size:11px;} .vlm{fill:var(--acid);font-size:11px;}
+  .qd{fill:var(--ink-2);font-size:9px;letter-spacing:.12em;text-transform:uppercase;opacity:.65;}
+  .quad{margin-bottom:24px;}
+  .leg{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:11px;color:var(--ink-2);}
+  .leg span{display:inline-flex;align-items:center;gap:5px;} .leg i{width:9px;height:9px;border-radius:50%;display:inline-block;}
+  /* ROTK leaderboard */
+  .rotk{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:16px 18px;margin-bottom:24px;}
+  .rotk .ct{color:var(--ink-2);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;}
+  .lb{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);}
+  .lb:last-child{border-bottom:0;}
+  .lb .rank{color:var(--ink-2);width:20px;text-align:right;font-size:13px;}
+  .lb .crown{width:20px;text-align:center;font-size:15px;}
+  .lb.king{background:linear-gradient(90deg,#171b0d,transparent);margin:0 -10px;padding:10px;border-radius:2px;border-bottom:0;}
+  .lb .nm{flex:1.2;min-width:0;}
+  .lb .nm .who{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lb .king-tag{color:var(--acid);font-size:10px;letter-spacing:.14em;text-transform:uppercase;margin-left:8px;}
+  .lb .sub3{color:var(--ink-2);font-size:11px;}
+  .lb .bar{flex:1.6;height:8px;background:#1b1d15;border-radius:1px;overflow:hidden;}
+  .lb .bar i{display:block;height:100%;background:var(--acid-dim);}
+  .lb.king .bar i{background:var(--acid);}
+  .lb .rot{width:108px;text-align:right;color:var(--acid);font-size:14px;}
 
-    Mint form fields (per spec):
-      - Client account: OPTIONAL, FILLABLE DROPDOWN (combobox). Choose an existing
-        account from the list, OR type a brand-new account name, OR leave it blank.
-        This is a naming/org layer only. It never enters the person's identity hash.
-      - Person name: required.
-      - Person email: required. The per-person-email identity is derived from THIS.
-  -->
-  <title>Operator Console | Personal Agent</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500..900&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
-  <style>
-    :root{
-      --paper:#F1EEEA; --paper-2:#E9E5DD; --paper-3:#DCD7CD;
-      --line:#CDC7BB; --hair:rgba(13,15,14,.14); --hair-soft:rgba(13,15,14,.08);
-      --ink:#0D0F0E; --ink-2:#3B3C38; --ink-3:#6E6E66; --on-ink:#F1EEEA;
-      --acid:#D1F643; --acid-2:#C2E62F; --acid-dim:#AFC93A; --acid-wash:#EAF4C0;
-      --warn:#B23A2E; --warn-wash:#F3E2DE;
-      --font-display:"Big Shoulders Display","Oswald",sans-serif;
-      --font-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
-      --font-sans:"Space Grotesk","Helvetica Neue",Arial,sans-serif;
-      --r:2px; --tr-label:.18em;
-    }
-    *{box-sizing:border-box;}
-    html,body{margin:0;background:var(--paper);color:var(--ink);}
-    body{font-family:var(--font-sans);-webkit-font-smoothing:antialiased;}
-    ::selection{background:var(--acid);color:var(--ink);}
-    .wrap{max-width:920px;margin:0 auto;padding:40px 24px 90px;}
-    .eyebrow{font-family:var(--font-mono);font-weight:500;text-transform:uppercase;
-      letter-spacing:var(--tr-label);font-size:11px;color:var(--ink-3);margin-bottom:14px;
-      display:flex;align-items:center;gap:10px;}
-    .eyebrow .dot{width:7px;height:7px;border-radius:999px;background:var(--acid);}
-    h1{font-family:var(--font-display);font-weight:800;font-size:46px;line-height:.95;
-      text-transform:uppercase;margin:0 0 8px;}
-    p.sub{color:var(--ink-2);margin:0 0 28px;max-width:60ch;font-size:15px;line-height:1.55;}
-    .cols{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;}
-    @media(max-width:760px){.cols{grid-template-columns:1fr;}}
-    .panel{background:var(--paper-2);border:1px solid var(--hair);border-radius:var(--r);padding:22px;}
-    .panel h3{font-family:var(--font-display);text-transform:uppercase;font-weight:700;font-size:20px;margin:0 0 14px;}
-    label{display:block;font-family:var(--font-mono);font-size:11px;text-transform:uppercase;
-      letter-spacing:var(--tr-label);color:var(--ink-3);margin:14px 0 6px;}
-    label .opt{color:var(--acid-dim);}
-    input{width:100%;font-family:var(--font-mono);font-size:14px;color:var(--ink);
-      background:var(--paper);border:1px solid var(--ink);border-radius:var(--r);padding:13px 14px;}
-    input::placeholder{color:var(--ink-3);}
-    .hint{font-family:var(--font-mono);font-size:10px;color:var(--ink-3);margin-top:5px;line-height:1.4;}
-    .btn{margin-top:20px;width:100%;font-family:var(--font-mono);font-weight:700;text-transform:uppercase;
-      letter-spacing:.1em;font-size:14px;border:1px solid var(--ink);border-radius:999px;padding:15px 22px;
-      background:var(--acid);color:var(--ink);cursor:pointer;}
-    .btn:hover{background:var(--acid-2);}
-    .notice{margin-top:16px;font-family:var(--font-mono);font-size:12px;line-height:1.5;
-      border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;background:var(--paper-3);
-      color:var(--ink-2);display:none;}
-    .notice.warn{display:block;background:var(--warn-wash);border-color:var(--warn);color:var(--warn);}
-    .clients .row{display:flex;justify-content:space-between;align-items:center;gap:10px;
-      padding:11px 0;border-bottom:1px solid var(--hair-soft);font-size:14px;}
-    .clients .row:last-child{border-bottom:none;}
-    .clients .acct{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;
-      letter-spacing:.1em;color:var(--ink-3);}
-    .empty{font-family:var(--font-mono);font-size:12px;color:var(--ink-3);padding:14px 0;}
-  </style>
+  /* mint form */
+  .form{max-width:520px;}
+  label{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);margin:18px 0 6px;}
+  input[type=text],input[type=email],input[type=number],select{width:100%;background:var(--card);border:1px solid var(--line);border-radius:2px;color:var(--ink);padding:11px 12px;font:inherit;}
+  input:focus,select:focus{outline:none;border-color:var(--acid-dim);}
+  .opt{text-transform:none;letter-spacing:0;color:var(--acid-dim);}
+  .cf-show{display:flex;align-items:center;gap:7px;margin:10px 0 0;font-size:12px;text-transform:none;letter-spacing:0;color:var(--ink-2);cursor:pointer;}
+  .cf-show input{width:15px;height:15px;accent-color:var(--acid);}
+  .caps{display:flex;flex-direction:column;gap:7px;margin-top:4px;}
+  .grp{color:var(--ink-2);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin:12px 0 2px;}
+  .cap{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:2px;padding:10px 12px;cursor:pointer;}
+  .cap:hover{border-color:var(--acid-dim);} .cap input{accent-color:var(--acid);width:16px;height:16px;} .cap .id{color:var(--ink-2);font-size:12px;margin-left:auto;}
+  .go{margin-top:24px;width:100%;background:var(--acid);color:#11130a;border:0;border-radius:2px;padding:14px;font:inherit;font-weight:700;cursor:pointer;}
+  .go:disabled{opacity:.5;}
+  .out{margin-top:16px;padding:14px;border-radius:2px;border:1px solid var(--line);background:var(--card);font-size:13px;display:none;}
+  .out.show{display:block;} .out.ok{border-color:var(--acid-dim);} .out.err{border-color:var(--bad);color:#ffb4b4;}
+
+  /* fleet */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:13px;}
+  .fcard{background:var(--card);border:1px solid var(--line);border-radius:3px;padding:15px;display:flex;flex-direction:column;gap:9px;position:relative;}
+  .fcard .name{font-size:16px;font-weight:600;padding-right:72px;}
+  .badge{position:absolute;top:14px;right:14px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:2px;border:1px solid var(--line);}
+  .badge.running{color:var(--acid);border-color:var(--acid-dim);} .badge.off{color:var(--ink-2);} .badge.unknown{color:var(--amber);border-color:#4a4020;}
+  .frow{display:flex;gap:8px;color:var(--ink-2);font-size:12px;} .frow b{color:var(--ink);font-weight:500;}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;} .chip{font-size:11px;background:#1b1d15;border:1px solid var(--line);border-radius:2px;padding:2px 7px;}
+  .acts{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px;border-top:1px solid var(--line);padding-top:11px;}
+  .act{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:12px;cursor:pointer;border-radius:6px;padding:7px 12px;border:1px solid var(--line);background:#1a1c14;color:var(--ink);transition:transform .1s,background .12s,border-color .12s,color .12s;text-decoration:none;}
+  .act:hover{border-color:var(--acid-dim);background:#1f2318;transform:translateY(-1px);}
+  .act .ic{font-size:12px;opacity:.8;}
+  .act.open{color:var(--acid);border-color:var(--acid-dim);background:#161a0c;}
+  .act.open:hover{background:var(--acid);color:#11130a;}
+  .act.danger{color:#e8a0a0;}
+  .act.danger:hover{border-color:#5a2424;background:#1f1414;color:#ffb4b4;}
+  .act.copied{border-color:var(--acid);background:var(--acid);color:#11130a;}
+  .fmetrics{display:flex;gap:18px;font-size:12px;color:var(--ink-2);} .fmetrics b{color:var(--ink);}
+  .ver{font-size:11px;color:var(--ink-2);letter-spacing:.01em;} .ver .overdue{color:var(--amber);}
+  /* fleet teams */
+  .team{margin-bottom:28px;}
+  .team-h{display:flex;align-items:baseline;gap:14px;margin-bottom:13px;padding-bottom:9px;border-bottom:1px solid var(--line);flex-wrap:wrap;}
+  .team-h .tn{font-size:17px;font-weight:600;letter-spacing:-.01em;}
+  .team-h .tm{color:var(--ink-2);font-size:12px;} .team-h .tm b{color:var(--acid);}
+  .retired-d{margin-top:14px;border:1px solid var(--line);border-radius:3px;background:#101109;}
+  .retired-d>summary{cursor:pointer;padding:12px 16px;color:var(--ink-2);font-size:13px;letter-spacing:.03em;text-transform:uppercase;list-style:none;}
+  .retired-d>summary::-webkit-details-marker{display:none;}
+  .retired-d>summary::before{content:"\25B8  ";}
+  .retired-d[open]>summary::before{content:"\25BE  ";}
+  .retired-d .rc{color:var(--ink-2);border:1px solid var(--line);border-radius:8px;padding:1px 7px;font-size:11px;margin-left:6px;}
+  .retired-d .grid{padding:0 16px 16px;opacity:.66;}
+  .badge.retired{color:var(--ink-2);border-color:var(--line);background:#16170f;}
+  .hint{color:var(--ink-2);font-size:11px;}
+  .empty,.err{border:1px dashed var(--line);border-radius:3px;padding:34px;text-align:center;color:var(--ink-2);} .err{border-color:#4a2424;color:#ffb4b4;}
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="eyebrow"><span class="dot"></span> Operator Console</div>
-    <h1>Mint a personal agent</h1>
-    <p class="sub">Close a client, then mint their agent here. Pick or name the client
-      account, add the person, and we provision their always-on personal agent. One
-      agent per person; group people under a client account.</p>
+  <header>
+    <div class="brand"><span class="dot"></span> Operator Console</div>
+    <nav>
+      <button class="tab on" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="mint">New agent</button>
+      <button class="tab" data-tab="fleet">Fleet</button>
+    </nav>
+    <span class="sp"></span>
+    <button class="logout" id="logout">Log out</button>
+  </header>
+  <main>
+    <!-- DASHBOARD -->
+    <section class="panel on" id="p-dashboard">
+      <h1>Dashboard</h1>
+      <p class="sub" id="d-sub">Spend, revenue, and ROI across your fleet.</p>
+      <div class="stats" id="d-stats"></div>
+      <div class="teams" id="d-teams"></div>
+      <div class="charts" id="d-charts"></div>
+      <div class="rotk" id="d-rotk"></div>
+      <div class="chart quad" id="d-quad"></div>
+      <div id="d-table"></div>
+    </section>
 
-    <div class="cols">
-      <!-- MINT FORM -->
-      <div class="panel">
-        <h3>Add an agent</h3>
-        <form id="mintForm" autocomplete="off">
-          <!-- CLIENT ACCOUNT: optional, fillable dropdown (combobox).
-               input + datalist = pick an existing account OR type a new one OR leave blank. -->
-          <label for="clientAccount">Client account <span class="opt">(optional)</span></label>
-          <input id="clientAccount" name="clientAccount" list="accountList"
-                 placeholder="Choose an account, type a new one, or leave blank" />
-          <datalist id="accountList"></datalist>
-          <div class="hint">Optional. Choose an existing account from the list, type a
-            brand-new account name, or leave it blank. Names and groups the box and URL
-            only. It never changes the person's identity.</div>
+    <!-- MINT -->
+    <section class="panel" id="p-mint">
+      <h1>New agent</h1>
+      <p class="sub">Close a client, then mint their agent here. Person name + email are required;
+        the client account is optional naming. Pick capabilities and a monthly price; we build it.</p>
+      <form class="form" id="f" autocomplete="off">
+        <label for="personName">Person name</label>
+        <input id="personName" type="text" placeholder="e.g. Sam" autocomplete="off" required />
+        <label for="email">Client email</label>
+        <input id="email" type="email" placeholder="sam@acme.com" autocomplete="off" required />
+        <label for="clientAccount">Client account <span class="opt">(optional)</span></label>
+        <input id="clientAccount" type="text" list="accountList" placeholder="Choose, type a new one, or leave blank" autocomplete="off" />
+        <datalist id="accountList"></datalist>
+        <label for="price">Monthly price (USD, what you charge them)</label>
+        <input id="price" type="number" min="0" step="1" placeholder="500" autocomplete="off" />
+        <label>Capabilities</label>
+        <div class="caps" id="caps"></div>
+        <label class="cf-show"><input type="checkbox" id="needsKit"> Needs Kit API (gives the client a private &quot;connect your Kit&quot; page in their build email)</label>
+        <button class="go" id="go" type="submit">Build agent</button>
+      </form>
+      <div class="out" id="out"></div>
+    </section>
 
-          <label for="personName">Person name</label>
-          <input id="personName" name="personName" required placeholder="e.g. Colin" />
+    <!-- FLEET -->
+    <section class="panel" id="p-fleet">
+      <h1>Fleet</h1>
+      <p class="sub" id="fl-sub">Your running agents. Buttons copy a prompt for your coding agent (Claude Code / Codex) to run.</p>
+      <div id="fl-out"></div>
+    </section>
+  </main>
 
-          <label for="personEmail">Person email</label>
-          <input id="personEmail" name="personEmail" type="email" required placeholder="colin@example.com" />
-          <div class="hint">The agent's identity is derived from this email. The same
-            person always maps to the same agent.</div>
+<script>
+  const REPO_PATH = "~/personal-agent-business";
+  const CAPS = [
+    { id:"repurpose", label:"Repurpose my content", group:"writer" },
+    { id:"voice-match", label:"Voice-match my writing", group:"writer" },
+    { id:"job-scan", label:"Weekly job scan", group:"writer" },
+    { id:"trend-jack", label:"Daily trend-jacking", group:"writer" },
+    { id:"kit-schedule", label:"Schedule my emails (Kit)", group:"writer" },
+    { id:"ghost-scorecard", label:"Ghostwriter scorecard", group:"coach" },
+    { id:"sales-followup", label:"Post-call follow-up + insight", group:"closer" },
+  ];
+  const $=s=>document.querySelector(s);
+  const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const money=n=>"$"+(Math.round((Number(n)||0)*100)/100).toLocaleString();
+  function ago(iso){ if(!iso)return""; const s=Math.max(0,(Date.now()-Date.parse(iso))/1000); if(s<3600)return Math.round(s/60)+"m"; if(s<86400)return Math.round(s/3600)+"h"; return Math.round(s/86400)+"d"; }
 
-          <button class="btn" type="submit">Mint an agent</button>
-          <div class="notice" id="notice"></div>
-        </form>
-      </div>
+  // tabs
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
+    const id=t.dataset.tab;
+    document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==='p-'+id));
+    if(id==='dashboard') loadDashboard();
+    if(id==='fleet') loadFleet();
+  });
 
-      <!-- CLIENT LIST -->
-      <div class="panel">
-        <h3>Your clients</h3>
-        <div class="clients" id="clients">
-          <div class="empty">No clients yet. Mint your first agent to see it here.</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // Slice 2: the client list and account dropdown are seeded empty. Slice 3 wires
-    // both to real data from the minting backend. No fabricated rows here.
-    const accountList=document.getElementById("accountList");
-    const clientsEl=document.getElementById("clients");
-
-    // Known accounts populate the combobox so the operator can reuse one. Empty in
-    // the shell; Slice 3 fills this from the backend.
-    const KNOWN_ACCOUNTS=[];
-    for(const a of KNOWN_ACCOUNTS){
-      const o=document.createElement("option"); o.value=a; accountList.appendChild(o);
+  // DASHBOARD (Tufte: minimal ink, direct labels, no gridlines, data dominates)
+  function lineChart(series){
+    if(!series||!series.length) return '<svg viewBox="0 0 320 120"><text x="0" y="62" class="ax">no activity yet</text></svg>';
+    const W=320,H=120, x0=4, y0=H-18, n=series.length;
+    const max=Math.max(...series.map(p=>p.value),1);
+    const xs=i=> x0 + (n===1?0:(i/(n-1))*(W-x0-46));
+    const ys=v=> 10 + (1 - v/max)*(y0-10);
+    const pts=series.map((p,i)=>`${xs(i).toFixed(1)},${ys(p.value).toFixed(1)}`).join(' ');
+    const last=series[n-1];
+    return `<svg viewBox="0 0 ${W} ${H}">
+      <polyline fill="none" stroke="var(--acid)" stroke-width="1.5" points="${pts}"/>
+      <circle cx="${xs(n-1).toFixed(1)}" cy="${ys(last.value).toFixed(1)}" r="2.5" fill="var(--acid)"/>
+      <text x="${(xs(n-1)+5).toFixed(1)}" y="${(ys(last.value)+3).toFixed(1)}" class="vlm">${money(last.value)}</text>
+      <text x="${x0}" y="${H-3}" class="ax">${esc(series[0].date.slice(5))}</text>
+      <text x="${W-46}" y="${H-3}" class="ax" text-anchor="end">${esc(last.date.slice(5))}</text>
+    </svg>`;
+  }
+  function barChart(items){
+    if(!items||!items.length) return '<svg viewBox="0 0 320 120"><text x="0" y="62" class="ax">no activity yet</text></svg>';
+    const top=items.slice(0,6), max=Math.max(...top.map(i=>i.value),1);
+    const rowH=20, W=320, labelW=104, barX=labelW+6, barW=W-barX-48, H=top.length*rowH+4;
+    return `<svg viewBox="0 0 ${W} ${H}">`+top.map((it,i)=>{
+      const y=i*rowH+3, w=(it.value/max)*barW;
+      return `<text x="0" y="${y+12}" class="ax">${esc(it.capability)}</text>
+        <rect x="${barX}" y="${y+3}" width="${w.toFixed(1)}" height="11" fill="var(--acid-dim)"/>
+        <text x="${(barX+w+5).toFixed(1)}" y="${y+12}" class="vl">${money(it.value)}</text>`;
+    }).join('')+`</svg>`;
+  }
+  function renderCharts(ts, bc){
+    $('#d-charts').innerHTML = `
+      <div class="chart"><div class="ct">Value created per day</div>${lineChart(ts)}</div>
+      <div class="chart"><div class="ct">Value by capability</div>${barChart(bc)}</div>`;
+  }
+  // The leverage quadrant: a static, evenly-distributed compass. Y = value created (the leverage a
+  // role drives), X = the AI's share of that value (attributed/raw). Points are placed by RANK on each
+  // axis, so the direction is honest (more AI share -> further right; more value -> higher) but a few
+  // agents at the same share never pile up and overlap - they spread evenly across the compass.
+  const QPAL=['#c7f04a','#f0c14a','#6ad0f0','#f06ac7','#9ad94a','#c79af0'];
+  function leverageQuad(clients){
+    const pts=(clients||[]).filter(c=>(c.valueCreated||0)>0).map((c,i)=>({
+      name:c.agentName||c.slug, team:c.team||'-',
+      share:Math.max(0,Math.min(1,(c.attributedValue||0)/(c.valueCreated||1))),
+      value:c.valueCreated||0, tokens:c.tokens||0, i,
+    }));
+    if(!pts.length) return {svg:'<svg viewBox="0 0 560 300"><text x="0" y="150" class="ax">No value data yet. The quadrant fills in as agents create value.</text></svg>', legend:''};
+    const W=560,H=300,mL=46,mR=20,mT=24,mB=34, pw=W-mL-mR, ph=H-mT-mB;
+    const n=pts.length;
+    const LO=0.22, SPAN=0.56;
+    const rankFrac=(key,tie)=>{
+      const order=[...pts].sort((a,b)=>(a[key]-b[key])||(a[tie]-b[tie])||(a.i-b.i));
+      const f={}; order.forEach((p,idx)=>{ f[p.i]= n===1?0.5 : LO+(idx/(n-1))*SPAN; }); return f;
+    };
+    const xf=rankFrac('share','value'), yf=rankFrac('value','share');
+    const toks=pts.map(p=>p.tokens), tmin=Math.min(...toks), tmax=Math.max(...toks);
+    const r=t=> tmax<=tmin ? 9 : 6 + ((t-tmin)/(tmax-tmin))*7;
+    const teams=[...new Set(pts.map(p=>p.team))];
+    const col=t=>QPAL[teams.indexOf(t)%QPAL.length];
+    const X=f=>mL+f*pw, Y=f=>mT+(1-f)*ph;
+    const cx0=mL+pw/2, cy0=mT+ph/2;
+    const qd=(x,y,a,txt)=>`<text x="${x}" y="${y}" text-anchor="${a}" class="qd">${txt}</text>`;
+    const bubbles=pts.map(p=>{
+      const cx=X(xf[p.i]),cy=Y(yf[p.i]),rr=r(p.tokens),c=col(p.team);
+      return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${rr.toFixed(1)}" fill="${c}" fill-opacity="0.16" stroke="${c}" stroke-width="1.3"/>
+        <text x="${cx.toFixed(1)}" y="${(cy-rr-4).toFixed(1)}" text-anchor="middle" class="vl" style="font-size:10px">${esc(p.name)}</text>`;
+    }).join('');
+    const svg=`<svg viewBox="0 0 ${W} ${H}">
+      <line x1="${cx0.toFixed(1)}" y1="${mT}" x2="${cx0.toFixed(1)}" y2="${mT+ph}" stroke="var(--line)" stroke-dasharray="3 3"/>
+      <line x1="${mL}" y1="${cy0.toFixed(1)}" x2="${mL+pw}" y2="${cy0.toFixed(1)}" stroke="var(--line)" stroke-dasharray="3 3"/>
+      ${qd(mL+3,mT+11,'start','Human leverage')}
+      ${qd(mL+pw-1,mT+11,'end','AI-leveraged')}
+      ${qd(mL+3,mT+ph-3,'start','Low priority')}
+      ${qd(mL+pw-1,mT+ph-3,'end','AI-heavy, proving')}
+      <text transform="rotate(-90 13 ${(mT+ph/2).toFixed(1)})" x="13" y="${(mT+ph/2).toFixed(1)}" text-anchor="middle" class="ax">value created &#8593;</text>
+      <text x="${cx0.toFixed(1)}" y="${H-6}" class="ax" text-anchor="middle">human-led  &#8592;  AI share of value  &#8594;  AI-led</text>
+      ${bubbles}
+    </svg>`;
+    const legend=`<div class="leg">${teams.map(t=>`<span><i style="background:${col(t)}"></i>${esc(t)}</span>`).join('')}<span style="margin-left:auto">position = rank · bubble = tokens used</span></div>`;
+    return {svg,legend};
+  }
+  function renderQuad(clients){
+    const q=leverageQuad(clients);
+    $('#d-quad').innerHTML=`<div class="ct">Leverage quadrant · where revenue comes from vs where AI does the work</div>${q.svg}${q.legend}`;
+  }
+  // ROTK leaderboard: agents ranked by Return on Tokens ($/Mtok); #1 is crowned the ROTK.
+  function renderRotk(clients){
+    const ranked=(clients||[]).filter(c=>c.tokens>0 && c.rot>0).sort((a,b)=>b.rot-a.rot);
+    if(!ranked.length){
+      $('#d-rotk').innerHTML=`<div class="ct">Return on Tokens · the ROTK leaderboard</div>`+
+        `<div class="sub3">No token usage yet. The ROTK is crowned once agents start thinking.</div>`;
+      return;
     }
+    const max=ranked[0].rot;
+    const rows=ranked.map((c,i)=>{
+      const king=i===0;
+      return `<div class="lb${king?' king':''}">
+        <span class="rank">${i+1}</span>
+        <span class="crown">${king?'\u{1F451}':''}</span>
+        <div class="nm"><span class="who">${esc(c.agentName||c.slug)}</span>${king?'<span class="king-tag">ROTK</span>':''}
+          <div class="sub3">${money(c.attributedValue)} agent share (${c.valueCreated>0?Math.round(c.attributedValue/c.valueCreated*100):0}% of ${money(c.valueCreated)} raw) · ${(c.tokens/1e6).toFixed(2)}M tokens</div></div>
+        <div class="bar"><i style="width:${(c.rot/max*100).toFixed(0)}%"></i></div>
+        <span class="rot">${money(c.rot)}<span class="sub3">/Mtok</span></span>
+      </div>`;
+    }).join('');
+    $('#d-rotk').innerHTML=`<div class="ct">Return on Tokens · the ROTK leaderboard</div>${rows}`;
+  }
+  function pct(n){ return (Math.round((Number(n)||0)*10)/10)+'%'; }
+  function renderTeams(teams){
+    if(!teams||!teams.length){ $('#d-teams').innerHTML=''; return; }
+    $('#d-teams').innerHTML=teams.map(t=>{
+      const pcls=t.profit>=0?'pos':'neg';
+      const note=t.isRetainer
+        ? `Flat retainer, unlimited seats. Each new agent adds ~<b>${money(t.costPerAgent)}</b>/mo cost and <b>$0</b> revenue.`
+        : `Per-seat pricing across <b>${t.agents}</b> seat${t.agents===1?'':'s'}.`;
+      return `<div class="tpl${t.isRetainer?' retainer':''}">
+        <div class="tpl-h"><span class="tn">${esc(t.team)}</span><span class="tg${t.isRetainer?'':' self'}">${t.isRetainer?'retainer':'self-serve'}</span></div>
+        <div class="tpl-rev">${money(t.retainerMonthly)}<span class="per">/mo revenue</span></div>
+        <div class="tpl-rows">
+          <div class="tpl-r"><span>seats</span><b>${t.agents} (${t.running} running)</b></div>
+          <div class="tpl-r"><span>margin</span><b class="${pcls}">${pct(t.marginPct)}</b></div>
+          <div class="tpl-r"><span>monthly profit</span><b class="${pcls}">${money(t.profit)}</b></div>
+          <div class="tpl-r"><span>run cost</span><b>${money(t.totalCost)}</b></div>
+          <div class="tpl-r"><span>value created</span><b>${money(t.valueCreated)}</b></div>
+          <div class="tpl-r"><span>ROT</span><b class="acid">${money(t.rot)}<span style="color:var(--ink-2)">/Mtok</span></b></div>
+        </div>
+        <div class="tpl-note">${note}</div>
+      </div>`;
+    }).join('');
+  }
+  async function loadDashboard(){
+    $('#d-stats').innerHTML=''; $('#d-teams').innerHTML=''; $('#d-table').innerHTML=''; $('#d-charts').innerHTML=''; $('#d-quad').innerHTML=''; $('#d-sub').textContent='loading...';
+    try{
+      const r=await fetch('/api/dashboard'); const d=await r.json();
+      if(!r.ok){ $('#d-table').innerHTML=`<div class="err">${esc(d.error||('error '+r.status))}</div>`; $('#d-sub').textContent=''; return; }
+      const t=d.totals||{clients:[]};
+      $('#d-sub').textContent='Revenue is your flat team retainer (unlimited seats). Raw value = human + agent together; ROT = the weighted agent share per million tokens. Month to date.';
+      const roiCls=t.roi>=0?'pos':'neg';
+      $('#d-stats').innerHTML=`
+        <div class="stat"><div class="k">Monthly revenue</div><div class="v">${money(t.revenue)}</div></div>
+        <div class="stat"><div class="k">Monthly profit</div><div class="v ${roiCls}">${money(t.roi)}</div></div>
+        <div class="stat"><div class="k">Value created</div><div class="v pos">${money(t.valueCreated)}</div></div>
+        <div class="stat"><div class="k">ROT · $/Mtok</div><div class="v pos">${money(t.rot)}</div></div>
+        <div class="stat"><div class="k">Agents</div><div class="v">${t.agents||0}</div></div>`;
+      renderTeams(d.teams||[]);
+      renderCharts(d.timeSeries||[], d.byCapability||[]);
+      renderQuad(d.clients||[]);
+      renderRotk(d.clients||[]);
+      const mult=n=>(Number(n)||0)>0?(Math.round((Number(n))*10)/10)+'x':'-';
+      const rows=(d.clients||[]).map(c=>`<tr>
+        <td><div class="who">${esc(c.agentName||c.slug)}</div><div class="sub2">${esc(c.email)}</div></td>
+        <td class="sub2">${esc(c.team||'-')}</td>
+        <td class="roi-pos">${money(c.valueCreated)}</td>
+        <td class="sub2">${money(c.attributedValue)}</td>
+        <td class="roi-pos">${money(c.rot)}</td>
+        <td>${money(c.totalCost)}</td>
+        <td class="${c.rawRoi>=1?'roi-pos':'roi-neg'}">${mult(c.rawRoi)}</td>
+      </tr>`).join('');
+      $('#d-table').innerHTML = (d.clients&&d.clients.length)
+        ? `<table><thead><tr><th>Agent</th><th>Team</th><th>Raw value</th><th>Agent $</th><th>ROT/Mtok</th><th>Run cost</th><th>Return</th></tr></thead><tbody>${rows}</tbody></table>`
+        : `<div class="empty">No agents yet. Build one from the New agent tab; it shows up here.</div>`;
+    }catch(e){ $('#d-table').innerHTML=`<div class="err">Could not reach the dashboard endpoint.</div>`; $('#d-sub').textContent=''; }
+  }
 
-    const form=document.getElementById("mintForm");
-    const notice=document.getElementById("notice");
-    form.addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      notice.className="notice";
-      const payload={
-        clientAccount:document.getElementById("clientAccount").value.trim(),
-        personName:document.getElementById("personName").value.trim(),
-        personEmail:document.getElementById("personEmail").value.trim(),
-      };
-      // /api/mint runs the real provisioning chain. On success it returns the
-      // minted identity and the client's onboarding link. Never fake a result.
-      notice.style.display="block";
-      notice.textContent="Minting "+payload.personName+"'s personal agent... this takes a few minutes.";
-      try{
-        const r=await fetch("/api/mint",{method:"POST",
-          headers:{"content-type":"application/json"},body:JSON.stringify(payload)});
-        const j=await r.json().catch(()=>({}));
-        if(!r.ok){
-          notice.className="notice warn";
-          notice.textContent=(j&&j.error)||("Mint failed ("+r.status+").");
-          return;
-        }
-        // Render the real minted-agent result: the client's onboarding link.
-        notice.className="notice";
-        notice.style.display="block";
-        const link=j&&j.connectUrl
-          ? '<br><a href="'+j.connectUrl+'">'+j.connectUrl+'</a>'
-          : "";
-        notice.innerHTML="Minted "+payload.personName+"'s agent. Send them this link to connect their apps:"+link;
-      }catch(err){
-        notice.className="notice warn";
-        notice.textContent="Could not reach the mint endpoint: "+err.message;
+  // MINT
+  const capsEl=$('#caps'); let lg='';
+  for(const c of CAPS){ if(c.group!==lg){const g=document.createElement('div');g.className='grp';g.textContent=c.group;capsEl.appendChild(g);lg=c.group;}
+    const row=document.createElement('label');row.className='cap';
+    row.innerHTML=`<input type="checkbox" value="${c.id}"><span>${c.label}</span><span class="id">${c.id}</span>`;capsEl.appendChild(row); }
+  function showOut(cls,msg){ const o=$('#out'); o.className='out show '+cls; o.textContent=msg; }
+  $('#f').addEventListener('submit',async e=>{
+    e.preventDefault();
+    const personName=$('#personName').value.trim(), email=$('#email').value.trim();
+    const clientAccount=$('#clientAccount').value.trim();
+    const priceMonthly=Number($('#price').value)||0;
+    const capabilities=[...document.querySelectorAll('.cap input:checked')].map(i=>i.value);
+    const needsKit=$('#needsKit').checked;
+    if(!personName||!email){showOut('err','Person name and client email are required.');return;}
+    $('#go').disabled=true; showOut('ok','Building '+personName+"'s agent...");
+    try{
+      const r=await fetch('/api/mint',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({personName,email,clientAccount,priceMonthly,capabilities,needsKit})});
+      const data=await r.json();
+      if(!r.ok){showOut('err',data.error||('build failed ('+r.status+')'));$('#go').disabled=false;return;}
+      const link=data.connectUrl?(' Send them this connect link: '+data.connectUrl):'';
+      showOut('ok','Build started for '+(data.agentName||personName)+' at '+money(priceMonthly)+'/mo. Client gets a build email now; login + connect in ~10 min.'+link);
+      $('#f').reset(); document.querySelectorAll('.cap input:checked').forEach(i=>i.checked=false);
+    }catch(err){showOut('err','Network error reaching the build endpoint.');}
+    finally{$('#go').disabled=false;}
+  });
+
+  // FLEET
+  function copy(btn,text){ const lab=btn.querySelector('.lbl')||btn; navigator.clipboard.writeText(text).then(()=>{const o=lab.textContent;lab.textContent='copied';btn.classList.add('copied');setTimeout(()=>{lab.textContent=o;btn.classList.remove('copied');},1200);}); }
+  function teamFromEmail(email){
+    const d=(String(email||'').split('@')[1]||'').toLowerCase();
+    if(!d) return 'Unassigned';
+    if(d.includes('operator.local')||d.includes('internal')) return 'Internal';
+    const base=d.split('.')[0]; return base ? base.charAt(0).toUpperCase()+base.slice(1) : 'Other';
+  }
+  function fcard(a){
+    // Buttons copy PROMPTS for your coding agent (Claude Code / Codex) working in the repo, not raw
+    // shell. The coding agent figures out and runs the mechanics; you just paste the intent.
+    const teardown=`In ${REPO_PATH}, retire the Agent "${a.agentName}" (slug ${a.slug}, client ${a.email}): remove its server, its Portal (Cloudflare tunnel + DNS + Access), its OpenAI brain, and its Composio connections. The Operator secrets live only on your Engine, so run it there. Confirm each step when done.`;
+    const adjust=`In ${REPO_PATH}, adjust the Agent "${a.agentName}" (slug ${a.slug}, client ${a.email}). I want to: `;
+    const ssh=`In ${REPO_PATH}, open a session on ${a.agentName}'s server (slug ${a.slug}) over the Cloudflare tunnel SSH path (ssh ${a.slug} - not tailscale, not a public IP; if it isn't wired yet, set it up with cf_ssh.sh). Then: `;
+    const rebuild=`In ${REPO_PATH}, rebuild the retired Agent "${a.agentName}" (client ${a.email}) with capabilities ${JSON.stringify(a.capabilities||[])}: re-run the build so it stands up a fresh server + Portal + brain, then wire SSH (cf_ssh.sh) over the tunnel.`;
+    const bc=a.retired?'retired':(a.status==='running'?'running':(a.status==='unknown'||!a.status)?'unknown':'off');
+    // Freshness line. "behind" is NORMAL daily drift, shown neutral. Amber "update overdue" only
+    // when the daily self-updater clearly hasn't run in >40h (the real problem).
+    let verLine='';
+    if(!a.retired){
+      const v=a.hermesVersion?'Hermes '+esc((String(a.hermesVersion).match(/v[0-9][0-9.]*/)||[a.hermesVersion])[0]):'Hermes <span class="hint">version unknown</span>';
+      const up=a.updatedAt?' · synced '+esc(ago(a.updatedAt))+' ago':' · <span class="hint">first sync pending</span>';
+      const bh=a.commitsBehind>0?' · <span class="hint">'+a.commitsBehind+' behind upstream</span>':'';
+      const overdue=a.updatedAt && (Date.now()-Date.parse(a.updatedAt))>40*3600e3;
+      verLine=`<div class="ver">${v}${up}${bh}${overdue?' · <span class="overdue">update overdue</span>':''}</div>`;
+    }
+    const el=document.createElement('div');el.className='fcard';
+    el.innerHTML=`<span class="badge ${bc}">${esc(a.retired?'retired':(a.status||'unknown'))}</span>
+      <div class="name">${esc(a.agentName||a.slug)}</div>
+      <div class="frow"><span>client</span> <b>${esc(a.email)}</b></div>
+      <div class="fmetrics">${a.retired?`<span>retired ${esc(ago(a.retiredAt))} ago</span>`:`<span><b>${money(a.valueCreated||0)}</b> value</span><span><b>${money(a.rot||0)}</b>/Mtok</span><span>built ${esc(ago(a.createdAt))} ago</span>`}</div>
+      ${verLine}
+      <div class="chips">${(a.capabilities||[]).map(c=>`<span class="chip">${esc(c)}</span>`).join('')||'<span class="hint">no capabilities</span>'}</div>
+      <div class="acts"></div>`;
+    const acts=el.querySelector('.acts');
+    const mk=(ic,l,t,d)=>{const b=document.createElement('button');b.className='act'+(d?' danger':'');b.innerHTML=`<span class="ic">${ic}</span><span class="lbl">${l}</span>`;b.onclick=()=>copy(b,t);acts.appendChild(b);};
+    if(a.retired){ mk('↻','Rebuild',rebuild); return el; }
+    if(a.loginUrl){const b=document.createElement('a');b.className='act open';b.href=a.loginUrl;b.target='_blank';b.innerHTML='<span class="ic">↗</span><span class="lbl">Open Portal</span>';acts.appendChild(b);}
+    mk('✎','Adjust',adjust); mk('⌘','Open server',ssh); mk('✕','Retire',teardown,true);
+    return el;
+  }
+  async function loadFleet(){
+    $('#fl-out').innerHTML=''; $('#fl-sub').textContent='loading...';
+    try{
+      const [fr,dr]=await Promise.all([fetch('/api/fleet'),fetch('/api/dashboard')]);
+      const fd=await fr.json(); const dd=dr.ok?await dr.json():{clients:[]};
+      if(!fr.ok){$('#fl-out').innerHTML=`<div class="err">${esc(fd.error||('error '+fr.status))}</div>`;$('#fl-sub').textContent='';return;}
+      const metrics={}; (dd.clients||[]).forEach(c=>{metrics[c.slug]={valueCreated:c.valueCreated,rot:c.rot};});
+      const teamPL={}; (dd.teams||[]).forEach(p=>{teamPL[p.team]=p;});
+      const all=(fd.fleet||[]).map(a=>({...a,...(metrics[a.slug]||{})}));
+      const retired=all.filter(a=>a.retired); const fleet=all.filter(a=>!a.retired);
+      $('#fl-sub').textContent=`${fleet.length} live agent${fleet.length===1?'':'s'} across your teams. Buttons copy a prompt for your coding agent (Claude Code / Codex) to run.`;
+      $('#fl-out').innerHTML='';
+      if(!fleet.length && !retired.length){$('#fl-out').innerHTML=`<div class="empty">No agents yet. Build one from the New agent tab.</div>`;return;}
+      const teams={}; fleet.forEach(a=>{const t=teamFromEmail(a.email);(teams[t]=teams[t]||[]).push(a);});
+      const order=Object.keys(teams).sort((x,y)=>teams[y].length-teams[x].length);
+      for(const t of order){
+        const ags=teams[t]; const val=ags.reduce((s,a)=>s+(a.valueCreated||0),0); const running=ags.filter(a=>a.status==='running').length;
+        const pl=teamPL[t];
+        const plStr=pl ? ` · <b>${money(pl.retainerMonthly)}</b>/mo${pl.isRetainer?'':' self-serve'} · ${pct(pl.marginPct)} margin` : '';
+        const sec=document.createElement('div'); sec.className='team';
+        sec.innerHTML=`<div class="team-h"><span class="tn">${esc(t)}</span><span class="tm"><b>${ags.length}</b> agent${ags.length===1?'':'s'} · ${running} running · <b>${money(val)}</b> value${plStr}</span></div>`;
+        const g=document.createElement('div'); g.className='grid'; ags.forEach(a=>g.appendChild(fcard(a))); sec.appendChild(g);
+        $('#fl-out').appendChild(sec);
       }
-    });
-  </script>
+      // Retired agents live in a collapsed dropdown, out of the default view.
+      if(retired.length){
+        const dd2=document.createElement('details'); dd2.className='retired-d';
+        dd2.innerHTML=`<summary>Retired <span class="rc">${retired.length}</span></summary>`;
+        const g=document.createElement('div'); g.className='grid'; retired.sort((a,b)=>(a.retiredAt<b.retiredAt?1:-1)).forEach(a=>g.appendChild(fcard(a))); dd2.appendChild(g);
+        $('#fl-out').appendChild(dd2);
+      }
+    }catch(e){$('#fl-out').innerHTML=`<div class="err">Could not reach the fleet endpoint.</div>`;$('#fl-sub').textContent='';}
+  }
+
+  $('#logout').onclick=async()=>{ await fetch('/api/logout',{method:'POST'}); location.href='/login.html'; };
+  loadDashboard(); // default tab
+</script>
 </body>
 </html>

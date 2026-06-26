@@ -2,7 +2,7 @@
   "name": "personal-agent-operator-console",
   "version": "0.1.0",
   "private": true,
-  "description": "Operator console: the minting dashboard shell. Mint button is stubbed (501) until Slice 3 wires real provisioning.",
+  "description": "Operator console: the 3-tab management dashboard (Dashboard spend/ROI, New agent mint, Fleet) behind one password gate. A thin proxy to the box receiver via MINT_RECEIVER_URL.",
   "type": "module",
   "engines": {
     "node": "20.x"

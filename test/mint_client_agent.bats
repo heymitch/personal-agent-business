@@ -24,22 +24,22 @@ teardown() { teardown_fake_bin; }
 
 @test "mint --dry-run computes per-email user_id + connect URL + slug-named box, spends nothing" {
   run "$SCRIPTS_DIR/mint_client_agent.sh" --dry-run \
-    --email "client@x.com" --client-account "s30" --person-name "Colin"
+    --email "client@x.com" --client-account "acme" --person-name "Dana"
   [ "$status" -eq 0 ]
   [[ "$output" == *"wm-"* ]]
   [[ "$output" == *"/?user=wm-"* ]]
-  [[ "$output" == *"colin-s30"* ]]            # slug names the box/URL only
+  [[ "$output" == *"dana-acme"* ]]            # slug names the box/URL only
 }
 
 @test "mint derives the per-email user_id from the SHIPPED user-id.ts (no slug in the hash)" {
   # The same email under DIFFERENT accounts must yield the SAME user_id.
   run "$SCRIPTS_DIR/mint_client_agent.sh" --dry-run \
-    --email "Colin@X.com" --client-account "s30" --person-name "Colin"
+    --email "Dana@X.com" --client-account "acme" --person-name "Dana"
   [ "$status" -eq 0 ]
   id_a="$(printf '%s\n' "$output" | grep -oE 'wm-[0-9a-f]{24}' | head -1)"
 
   run "$SCRIPTS_DIR/mint_client_agent.sh" --dry-run \
-    --email "colin@x.com " --client-account "acme" --person-name "Colin"
+    --email "dana@x.com " --client-account "beta" --person-name "Dana"
   [ "$status" -eq 0 ]
   id_b="$(printf '%s\n' "$output" | grep -oE 'wm-[0-9a-f]{24}' | head -1)"
 
@@ -57,7 +57,7 @@ teardown() { teardown_fake_bin; }
 
 @test "mint --dry-run never prints a secret value" {
   run "$SCRIPTS_DIR/mint_client_agent.sh" --dry-run \
-    --email "client@x.com" --client-account "s30" --person-name "Colin"
+    --email "client@x.com" --client-account "acme" --person-name "Dana"
   [ "$status" -eq 0 ]
   [[ "$output" != *"fake-token-987654321"* ]]
   [[ "$output" != *"ck-fake"* ]]
@@ -65,7 +65,7 @@ teardown() { teardown_fake_bin; }
 }
 
 @test "mint requires --email and --person-name" {
-  run "$SCRIPTS_DIR/mint_client_agent.sh" --dry-run --client-account "s30"
+  run "$SCRIPTS_DIR/mint_client_agent.sh" --dry-run --client-account "acme"
   [ "$status" -ne 0 ]
   [[ "$output" == *"usage"* || "$output" == *"required"* ]]
 }
@@ -80,7 +80,7 @@ teardown() { teardown_fake_bin; }
   export MINT_FAKE_IP="203.0.113.55"           # the shimmed provision returns this
   export MINT_FAKE_SESSION_ID="trs_faked_123"  # the shimmed session create returns this
   run "$SCRIPTS_DIR/mint_client_agent.sh" \
-    --email "client@x.com" --client-account "s30" --person-name "Colin"
+    --email "client@x.com" --client-account "acme" --person-name "Dana"
   [ "$status" -eq 0 ]
   [[ "$output" == *"MINT-OK"* ]]
   [[ "$output" == *"user_id=wm-"* ]]

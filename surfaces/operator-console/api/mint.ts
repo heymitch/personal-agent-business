@@ -1,73 +1,62 @@
 /**
- * POST /api/mint  ->  run the real on-demand provisioning.
+ * POST /api/mint -> forwards the New-agent form to the operator box's /mint, which runs the real
+ * on-demand provisioning (mint_client_agent.sh: per-person-email user_id, <person>-<account> box
+ * naming, provision + Cloudflare gate + Tool Router session), then records the agent so it appears
+ * on the Fleet + Dashboard.
  *
- * The operator console's "Mint an agent" button posts { clientAccount,
- * personName, personEmail } here. This shells the vendored mint action
- * (scripts/mint_client_agent.sh), which derives the per-PERSON-email user_id,
- * names the box <person-slug>-<account-slug>, provisions the box + Cloudflare
- * gate, creates the Tool Router session bound to that user_id, persists
- * userId -> sessionId via the SHIPPED session store, and surfaces the client's
- * onboarding link. No Stripe gate in v1 (operator-clicked on a closed call).
- *
- * Person name + email are required; client account is OPTIONAL (naming only;
- * it never enters the identity hash). Secrets are never returned to the client.
+ * The console is a thin password-gated proxy: it holds only MINT_RECEIVER_URL + MINT_SECRET and
+ * forwards with the shared secret server-side. Person name + client email are required; client
+ * account is OPTIONAL (naming only; it never enters the identity hash). Secrets never reach the
+ * browser; a failed mint returns a clean message, never the box's stderr.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { spawn } from "node:child_process";
-import { resolve } from "node:path";
-
-const MINT_SCRIPT = resolve(process.cwd(), "scripts/mint_client_agent.sh");
-
-interface MintResult {
-  user_id: string;
-  ip: string;
-  connectUrl: string;
-  box: string;
-}
-
-function runMint(args: string[]): Promise<{ code: number; stdout: string; stderr: string }> {
-  return new Promise((resolveRun) => {
-    const child = spawn("bash", [MINT_SCRIPT, ...args], { env: process.env });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (d) => (stdout += d.toString()));
-    child.stderr.on("data", (d) => (stderr += d.toString()));
-    child.on("close", (code) => resolveRun({ code: code ?? 1, stdout, stderr }));
-  });
-}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
+  const receiver = process.env.MINT_RECEIVER_URL;
+  const secret = process.env.MINT_SECRET;
+  if (!receiver || !secret) {
+    return res.status(500).json({ error: "MINT_RECEIVER_URL / MINT_SECRET not configured" });
+  }
 
-  const { clientAccount, personName, personEmail } = (req.body ?? {}) as {
-    clientAccount?: string;
+  const body = (req.body ?? {}) as {
     personName?: string;
-    personEmail?: string;
+    email?: string;
+    clientAccount?: string;
+    priceMonthly?: number;
+    capabilities?: string[];
+    needsKit?: boolean;
   };
-  if (!personName || !personEmail) {
-    return res.status(400).json({ error: "personName and personEmail are required" });
+  const personName = String(body.personName ?? "").trim();
+  const email = String(body.email ?? "").trim();
+  if (!personName) return res.status(400).json({ error: "personName required" });
+  if (!email) return res.status(400).json({ error: "client email required" });
+  const price = Number(body.priceMonthly);
+  const capabilities = Array.isArray(body.capabilities) ? body.capabilities.map(String) : [];
+
+  try {
+    const upstream = await fetch(`${receiver.replace(/\/+$/, "")}/mint`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-sim-secret": secret },
+      body: JSON.stringify({
+        personName,
+        email,
+        clientAccount: String(body.clientAccount ?? "").trim(),
+        priceMonthly: Number.isFinite(price) && price >= 0 ? price : undefined,
+        capabilities,
+        needsKit: body.needsKit === true,
+      }),
+    });
+    const text = await upstream.text();
+    if (!upstream.ok) return res.status(upstream.status).json({ error: `receiver ${upstream.status}: ${text}` });
+    const data = JSON.parse(text) as { agentName?: string; connectUrl?: string; slug?: string };
+    return res.status(200).json({
+      ok: true,
+      agentName: data.agentName,
+      connectUrl: data.connectUrl,
+      slug: data.slug,
+    });
+  } catch (e) {
+    return res.status(502).json({ error: e instanceof Error ? e.message : String(e) });
   }
-
-  const args = ["--email", personEmail, "--person-name", personName];
-  if (clientAccount && clientAccount.trim()) {
-    args.push("--client-account", clientAccount.trim());
-  }
-
-  const { code, stdout, stderr } = await runMint(args);
-
-  // The success token (mutation-proven) carries the minted identity + box ip.
-  const mintOk = stdout.match(/MINT-OK user_id=(\S+) ip=(\S+)/);
-  if (code !== 0 || !mintOk) {
-    // Surface a clean failure; never leak env/secret-bearing stderr to the client.
-    return res.status(502).json({ error: "Mint failed. Check the operator console logs." });
-  }
-
-  const connect = stdout.match(/Onboarding link for .*?: (\S+)/);
-  const result: MintResult = {
-    user_id: mintOk[1],
-    ip: mintOk[2],
-    connectUrl: connect ? connect[1] : "",
-    box: "",
-  };
-  return res.status(200).json(result);
 }
