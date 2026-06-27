@@ -53,6 +53,15 @@ setup() { CONSOLE="$REPO_ROOT/surfaces/operator-console"; export CONSOLE; }
   grep -q '/mint' "$CONSOLE/api/mint.ts"
 }
 
+# ---- default skills: the New-agent picker pre-checks the operator's defaults --
+@test "console New-agent picker pre-checks the operator DEFAULT_SKILLS" {
+  # the config endpoint surfaces the operator's default skills from env (no secret, no box hop)
+  grep -q 'DEFAULT_SKILLS' "$CONSOLE/api/config.ts"
+  # the picker fetches them and pre-checks the matching capabilities
+  grep -q '/api/config' "$CONSOLE/index.html"
+  grep -q 'defaultSkills' "$CONSOLE/index.html"
+}
+
 # ---- sanitization: PRIVATE -> PUBLIC, airtight -------------------------------
 # node_modules is gitignored (never shipped) but present locally for tsc; exclude it from the
 # leak sweep so we only scan the committed, vendored console source.

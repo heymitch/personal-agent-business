@@ -380,6 +380,15 @@
   for(const c of CAPS){ if(c.group!==lg){const g=document.createElement('div');g.className='grp';g.textContent=c.group;capsEl.appendChild(g);lg=c.group;}
     const row=document.createElement('label');row.className='cap';
     row.innerHTML=`<input type="checkbox" value="${c.id}"><span>${c.label}</span><span class="id">${c.id}</span>`;capsEl.appendChild(row); }
+  // Pre-check the operator's DEFAULT_SKILLS: the skills every new client agent ships with by default.
+  // The receiver applies them as a floor at mint time regardless; this just shows them pre-selected.
+  fetch('/api/config').then(r=>r.ok?r.json():{defaultSkills:[]}).then(cfg=>{
+    const def=new Set(cfg.defaultSkills||[]);
+    document.querySelectorAll('.cap').forEach(row=>{
+      const inp=row.querySelector('input');
+      if(inp&&def.has(inp.value)){ inp.checked=true; const t=document.createElement('span'); t.className='id'; t.textContent='default'; t.style.color='var(--acid)'; row.appendChild(t); }
+    });
+  }).catch(()=>{});
   function showOut(cls,msg){ const o=$('#out'); o.className='out show '+cls; o.textContent=msg; }
   $('#f').addEventListener('submit',async e=>{
     e.preventDefault();

@@ -46,6 +46,7 @@ NON_SECRET_KEYS = {
     "CF_ACCESS_AUTH_DOMAIN",
     "CF_ACCESS_AUD",
     "CONSOLE_HOST",
+    "DEFAULT_SKILLS",
 }
 
 # Keys the provisioning + deploy + mint chain needs before the operator can run.

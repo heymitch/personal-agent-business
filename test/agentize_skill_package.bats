@@ -100,6 +100,24 @@ teardown() { teardown_fake_bin; }
   [[ "$output" == *"SKILLS-LOADED count=2"* ]]
 }
 
+# ---- default skills (the mint floor for every new client agent) ---------------
+
+@test "agentize --defaults restricts the load to DEFAULT_SKILLS only" {
+  export DEFAULT_SKILLS="ghost-scorecard"
+  run "$SCRIPTS_DIR/agentize.sh" --load-skills --target 198.51.100.7 --source "$AGENTIZE_SKILLS_DIR" --defaults --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"ghost-scorecard"* ]]
+  [[ "$output" != *"fathom-followup"* ]]
+  [[ "$output" == *"SKILLS-LOADED count=1"* ]]
+}
+
+@test "agentize without --defaults ships ALL discovered skills (defaults is opt-in)" {
+  export DEFAULT_SKILLS="ghost-scorecard"
+  run "$SCRIPTS_DIR/agentize.sh" --scan-skills --source "$AGENTIZE_SKILLS_DIR"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SKILLS-SCANNED count=2"* ]]
+}
+
 @test "agentize --load-skills requires a --target client agent" {
   run "$SCRIPTS_DIR/agentize.sh" --load-skills --source "$AGENTIZE_SKILLS_DIR" --dry-run
   [ "$status" -ne 0 ]

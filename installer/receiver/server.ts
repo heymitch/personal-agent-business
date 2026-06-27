@@ -39,6 +39,7 @@ import { aggregateDashboard } from "../src/dashboard/aggregate.js";
 import { rollupTeams, teamOf } from "../src/dashboard/teams.js";
 import { makeActivityLog } from "../src/activity/activity-log.js";
 import { aggregateActivity, ATTRIBUTION_WEIGHT } from "../src/activity/aggregate.js";
+import { parseDefaultSkills, mergeDefaultSkills } from "../src/registry/default-skills.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.SIM_PORT ?? 8788);
@@ -455,11 +456,15 @@ const server = createServer((req, res) => {
             : slugify(personName);
           const connect = stdout.match(/Onboarding link for .*?: (\S+)/);
           const price = Number(body.priceMonthly);
+          // DEFAULT-SKILLS floor: every minted agent ships with the operator's default skills,
+          // unioned with whatever the New-agent picker selected (defaults apply even if empty).
+          const requested = Array.isArray(body.capabilities) ? body.capabilities.map(String) : [];
+          const capabilities = mergeDefaultSkills(requested, parseDefaultSkills(process.env.DEFAULT_SKILLS));
           await registry.record({
             slug,
             email,
             agentName: String(body.agentName ?? personName).trim() || personName,
-            capabilities: Array.isArray(body.capabilities) ? body.capabilities.map(String) : [],
+            capabilities,
             loginUrl: connect ? connect[1] : "",
             priceMonthly: Number.isFinite(price) && price >= 0 ? price : undefined,
           });

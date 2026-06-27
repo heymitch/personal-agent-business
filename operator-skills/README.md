@@ -19,6 +19,14 @@ instead (each skill is a folder containing a `SKILL.md`).
 
 The narrated operator flow is `.claude/commands/agentize-skills.md`.
 
+## Default skills (the mint floor)
+
+Set `DEFAULT_SKILLS` in `.env` (comma-separated capability ids) to the skills EVERY
+newly minted client agent should ship with by default. The console New-agent picker
+pre-checks them, the mint applies them as a floor, and
+`scripts/agentize.sh --load-skills --target <agent> --defaults` ships exactly that
+default set onto a freshly minted agent.
+
 This folder is a staging/reference location. Drop a skill folder here (one
 folder per skill, each with a `SKILL.md`) and `--scan-skills --source operator-skills`
 will pick it up. The pipeline never edits your skill contents; it only archives

@@ -20,11 +20,15 @@
 # --dry-run on every stage: print the plan, touch nothing, spend nothing, and
 # NEVER print a secret value (the SSH key path is referenced as a redacted flag).
 #
+# --defaults restricts any stage to DEFAULT_SKILLS (comma-separated capability ids
+# in .env): the skills EVERY newly minted client agent ships with by default. Use it
+# with --load-skills to ship exactly your defaults onto a freshly minted agent.
+#
 # Usage:
-#   agentize.sh --scan-skills    [--source <dir>] [--dry-run]
-#   agentize.sh --package-skills [--source <dir>] [--staging <dir>] [--dry-run]
+#   agentize.sh --scan-skills    [--source <dir>] [--defaults] [--dry-run]
+#   agentize.sh --package-skills [--source <dir>] [--staging <dir>] [--defaults] [--dry-run]
 #   agentize.sh --load-skills --target <client_ip_or_host> [--staging <dir>]
-#                                [--source <dir>] [--dry-run]
+#                                [--source <dir>] [--defaults] [--dry-run]
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/env.sh
@@ -47,13 +51,17 @@ SOURCE=""
 TARGET=""
 STAGING="${AGENTIZE_STAGING_DIR:-$HERE/../.agentize-staging}"
 DRY_RUN=0
+DEFAULTS_ONLY=0
 
 usage() {
   cat >&2 <<'EOF'
 usage:
-  agentize.sh --scan-skills    [--source <dir>] [--dry-run]
-  agentize.sh --package-skills [--source <dir>] [--staging <dir>] [--dry-run]
-  agentize.sh --load-skills --target <client_ip_or_host> [--staging <dir>] [--source <dir>] [--dry-run]
+  agentize.sh --scan-skills    [--source <dir>] [--defaults] [--dry-run]
+  agentize.sh --package-skills [--source <dir>] [--staging <dir>] [--defaults] [--dry-run]
+  agentize.sh --load-skills --target <client_ip_or_host> [--staging <dir>] [--source <dir>] [--defaults] [--dry-run]
+
+  --defaults  restrict to your DEFAULT_SKILLS (comma-separated capability ids in .env):
+              the skills EVERY newly minted client agent ships with by default.
 EOF
 }
 
@@ -64,6 +72,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --source)         SOURCE="${2:-}"; shift 2;;
   --target)         TARGET="${2:-}"; shift 2;;
   --staging)        STAGING="${2:-}"; shift 2;;
+  --defaults)       DEFAULTS_ONLY=1; shift;;
   --dry-run)        DRY_RUN=1; shift;;
   -h|--help)        usage; exit 0;;
   *) echo "unknown arg: $1" >&2; usage; exit 2;;
@@ -111,6 +120,26 @@ discover_names() {
   fi
 }
 
+# filter_defaults : pass through only the skill names in DEFAULT_SKILLS (the operator's chosen
+# mint-default subset, comma-separated capability ids in .env). Used when --defaults is set.
+filter_defaults() {
+  local allow line
+  allow=" $(printf '%s' "${DEFAULT_SKILLS:-}" | tr ',' ' ') "
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    case "$allow" in *" $line "*) echo "$line";; esac
+  done
+}
+
+# discover_names_filtered : discover, then (when --defaults) keep only DEFAULT_SKILLS.
+discover_names_filtered() {
+  if [ "$DEFAULTS_ONLY" -eq 1 ]; then
+    discover_names | filter_defaults
+  else
+    discover_names
+  fi
+}
+
 # Source descriptor for human-readable plan lines (no secret in it).
 source_desc() {
   if [ -n "$SOURCE" ]; then printf 'local:%s' "$SOURCE"
@@ -122,7 +151,7 @@ case "$MODE" in
   scan)
     desc="$(source_desc)"
     echo "scan source: $desc"
-    read_names_into NAMES discover_names
+    read_names_into NAMES discover_names_filtered
     n="${#NAMES[@]}"
     if [ "$DRY_RUN" -eq 1 ]; then
       echo "DRY-RUN scan: would enumerate skill folders under $desc"
@@ -136,7 +165,7 @@ case "$MODE" in
   package)
     desc="$(source_desc)"
     echo "package source: $desc -> staging: $STAGING"
-    read_names_into NAMES discover_names
+    read_names_into NAMES discover_names_filtered
     n="${#NAMES[@]}"
     if [ "$DRY_RUN" -eq 1 ]; then
       if [ "$n" -gt 0 ]; then
@@ -162,7 +191,7 @@ case "$MODE" in
   load)
     [ -n "$TARGET" ] || { echo "ERROR: --load-skills requires --target <client_ip_or_host>" >&2; usage; exit 2; }
     desc="$(source_desc)"
-    read_names_into NAMES discover_names
+    read_names_into NAMES discover_names_filtered
     n="${#NAMES[@]}"
     echo "load source: $desc"
     echo "load target: root@$TARGET:$BOX_SKILLS_DIR (rsync $SSH_KEY_FLAG)"

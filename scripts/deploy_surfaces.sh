@@ -99,7 +99,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
         echo "   (console deploy BLOCKED on a real run: deploy the engine first, then set"
         echo "    MINT_RECEIVER_URL + MINT_SECRET so the console is never 'not configured')"
       fi
-      for v in MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL; do
+      for v in MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL DEFAULT_SKILLS; do
         if [ -n "${!v:-}" ]; then
           echo "   vercel env add $v production = $(redact_len "${!v}")"
         else
@@ -135,7 +135,7 @@ deploy_one() {
     # Cloudflare Access email gate in middleware.js (from cf_console_gate.sh); pushed
     # when set, and the middleware fails CLOSED if any is missing.
     local v
-    for v in MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL; do
+    for v in MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL DEFAULT_SKILLS; do
       [ -n "${!v:-}" ] || continue
       printf '%s' "${!v}" | \
         ( cd "$dir" && "$VERCEL" env add "$v" production --yes >/dev/null 2>&1 || true )

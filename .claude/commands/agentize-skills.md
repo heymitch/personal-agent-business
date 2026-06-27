@@ -59,6 +59,22 @@ back. Do not invent skills for them.
 
 ---
 
+## Step 1b: choose your DEFAULT skills (the mint floor)
+
+Ask the operator, one question at a time: "Of these skills, which should EVERY new
+client agent ship with by default?" Their answer is `DEFAULT_SKILLS` (comma-separated
+capability ids in `.env`). It does three things automatically:
+
+- the console New-agent picker PRE-CHECKS those capabilities,
+- the mint applies them as a FLOOR (a new agent gets them even if the picker is empty),
+- `scripts/agentize.sh --load-skills --target <new agent> --defaults` ships exactly
+  that default set onto a freshly minted agent.
+
+Set it via the key form (or `.env`). Per-client extras are still picked at mint time;
+this is just the default every client starts with.
+
+---
+
 ## Step 2: package (writes portable bundles)
 
 Tar each scanned skill into a portable bundle in the staging dir

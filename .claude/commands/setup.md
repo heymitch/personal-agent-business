@@ -33,9 +33,12 @@ one-time token, opens the tokened URL, and prints it as `SETUP_URL=...`. If the
 operator says nothing opened, read the printed `SETUP_URL=` line (the address
 with `?t=`) and give it to them verbatim.
 
-The form collects every OPERATOR key: Hetzner, the brain admin key + base URL +
-model, AgentMail, Composio, Cloudflare, Vercel, and Slack. It writes them to
-`.env` (gitignored) and never echoes a value back.
+The form holds every OPERATOR key, but do NOT dump them on the operator. Walk them
+through ONE field at a time, in order, explaining WHY each is needed and offering the
+sensible default before asking. Most have defaults (the brain base URL + model, the
+Slack invite address); AgentMail is OPTIONAL (skip it if the agent uses Gmail through
+Composio); Vercel needs no token (it is a Claude Code connection, `vercel login`). It
+writes to `.env` (gitignored) and never echoes a value back.
 
 ---
 

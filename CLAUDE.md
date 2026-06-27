@@ -54,8 +54,16 @@ step. Do not dump a list of options. One step, plain English.
 ## Interview, don't dump
 
 Ask ONE question at a time. Show options, not IDs. Never invent a field. Explain
-WHY before asking. Wait for the answer before asking the next question. Never ask
-for a key until the step that needs it.
+WHY before asking, and offer the sensible DEFAULT before asking (most fields have
+one: the brain base URL + model, the Slack invite address; AgentMail is optional;
+Vercel needs no token). Wait for the answer before asking the next question. Never
+ask for a key until the step that needs it.
+
+When the operator has built skills, ask which become DEFAULT_SKILLS: the skills
+EVERY newly minted client agent ships with by default. Wire the answer into
+`DEFAULT_SKILLS` (the New-agent picker pre-checks them, the mint applies them as a
+floor, and `agentize.sh --load-skills --defaults` ships exactly that set to a new
+agent).
 
 ---
 
