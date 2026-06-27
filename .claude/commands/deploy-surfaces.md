@@ -1,16 +1,22 @@
 # /deploy-surfaces
 
-Deploy the three client-facing surfaces to the operator's OWN Vercel:
+Deploy the operator's Vercel surfaces, in TWO groups:
 
-- **onboarding** the connect-on-page where each client picks and authorizes their
-  apps (vendored, ready to ship).
 - **landing** the public offer page the operator brands with their own copy.
-- **operator-console** the minting dashboard. The "Mint an agent" button is a stub
-  in this slice (it returns a clear "not connected yet" notice); a later slice wires
-  it to real provisioning.
+  Independent of everything else, so it deploys on its own (anytime).
+- **operational = onboarding + operator-console**:
+  - **onboarding** the connect-on-page where each client picks and authorizes their
+    apps (vendored, ready to ship).
+  - **operator-console** the minting dashboard, a thin proxy to your box receiver.
 
-You are the guide. Walk the operator from a built repo to three live URLs, one step
-at a time. You run the deploy script; you own the judgment steps (confirming Vercel
+ORDER IS LOAD-BEARING. The console proxies your box receiver, so it must NOT deploy
+before that receiver exists. Deploy your minting engine first
+(`scripts/deploy_engine.sh`), capture its `RECEIVER-URL`, set `MINT_RECEIVER_URL` +
+`MINT_SECRET`, THEN deploy the operational group. The script REFUSES to deploy a
+console without those, so the console is never live in a "not configured" state.
+
+You are the guide. Walk the operator from a built repo to the live URLs, one step at
+a time. You run the deploy script; you own the judgment steps (confirming Vercel
 auth, branding the landing copy, reading the URLs back). No key is ever printed back.
 
 ---
@@ -72,21 +78,41 @@ onboarding, landing, operator-console.
 
 ---
 
-## Step 3: deploy the three surfaces
+## Step 3: deploy the landing page (independent)
 
 ```
-scripts/deploy_surfaces.sh
+scripts/deploy_surfaces.sh --landing
 ```
 
-This pushes each surface to the operator's Vercel in order (onboarding, then landing,
-then console), setting `COMPOSIO_API_KEY` into the onboarding project's Vercel env so
-its functions work in production. Capture the success line:
+The landing page is static and self-contained, so it ships on its own. Capture:
 
 ```
-SURFACES-DEPLOYED onboarding=<url> landing=<url> console=<url>
+SURFACES-DEPLOYED landing=<url>
 ```
 
-Read the three URLs back to the operator plainly. Never print the Vercel token.
+---
+
+## Step 3b: confirm the engine/receiver is up FIRST, then deploy the operational group
+
+The console is a thin proxy to your box receiver. Before deploying it, confirm the
+minting engine is deployed (`scripts/deploy_engine.sh` printed `ENGINE-DEPLOYED` +
+`RECEIVER-URL=<url>`) and that you set `MINT_RECEIVER_URL` (the receiver URL) and
+`MINT_SECRET` in `.env`. Then:
+
+```
+scripts/deploy_surfaces.sh --operational
+```
+
+This pushes onboarding then the operator-console, setting `COMPOSIO_API_KEY` into the
+onboarding project's Vercel env and `MINT_RECEIVER_URL` + `MINT_SECRET` into the
+console's. If the receiver env is not set, the script refuses (the console would
+otherwise come up "not configured"); deploy the engine and set those first. Capture:
+
+```
+SURFACES-DEPLOYED onboarding=<url> console=<url>
+```
+
+Read the URLs back to the operator plainly. Never print a secret.
 
 ---
 

@@ -36,6 +36,20 @@ esac; done
 IP="${AGENT_IP:-}"
 [ -n "$IP" ] || { echo "usage: deploy_engine.sh [--dry-run]  (set AGENT_IP; provision the box first)" >&2; exit 2; }
 
+# The receiver URL the operator console proxies to (set as MINT_RECEIVER_URL, with
+# MINT_SECRET as the shared x-sim-secret). Expose the box receiver (port 8788)
+# through your box's Cloudflare tunnel as receiver-<name>.<domain>; that gated host
+# is the value to set. We emit it as RECEIVER-URL so /setup can capture it BEFORE the
+# console is deployed (the console must never go live before its receiver exists).
+RECEIVER_URL="${MINT_RECEIVER_URL:-}"
+if [ -z "$RECEIVER_URL" ]; then
+  if [ -n "${AGENT_NAME:-}" ] && [ -n "${AGENT_DOMAIN:-}" ]; then
+    RECEIVER_URL="https://receiver-${AGENT_NAME}.${AGENT_DOMAIN}"
+  else
+    RECEIVER_URL="http://${IP}:8788"
+  fi
+fi
+
 # Box-side layout: the engine lives under the hermes user's home.
 SERVICE_USER="hermes"
 INSTALLER_ROOT="/home/${SERVICE_USER}/personal-agent-engine"
@@ -68,6 +82,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "$SERVICE_RENDERED"
   echo "--- rendered reconcile-sessions.timer ---"
   echo "$TIMER_RENDERED"
+  echo "RECEIVER-URL=${RECEIVER_URL}"
   exit 0
 fi
 
@@ -91,3 +106,4 @@ printf '%s\n' "$TIMER_RENDERED" | "$SSH" "${SSH_OPTS[@]}" "root@$IP" "cat > /etc
 "$SSH" "${SSH_OPTS[@]}" "root@$IP" "su - ${SERVICE_USER} -c 'cd ${INSTALLER_ROOT} && (nohup node_modules/.bin/tsx receiver/server.ts >/dev/null 2>&1 &)'" >/dev/null 2>&1 || true
 
 echo "ENGINE-DEPLOYED ip=${IP}"
+echo "RECEIVER-URL=${RECEIVER_URL}"

@@ -81,12 +81,21 @@ healthy, tell the operator it is done and move to the next. Otherwise run it.
    which is the FIRST CHARGE: billed HOURLY, capped at about $8 a month and
    prorated, so a quick test costs cents. Flag it and wait for a "yes" first.)
    Confirm the agent answers in the owner's voice before moving on.
-2. **Your selling surfaces** -> run `/deploy-surfaces`. Deploys the console +
-   onboarding + landing to the operator's Vercel and seeds `ONBOARDER_BASE_URL`.
-3. **Your minting engine** -> run `scripts/deploy_engine.sh` (over SSH to the box
-   from step 1). Installs the receiver + the reconcile timer. Confirm
-   `ENGINE-DEPLOYED`.
-4. **Your daily maintenance** -> run `scripts/deploy_maintenance.sh` (same box,
+2. **Your landing page** -> run `scripts/deploy_surfaces.sh --landing`. The public
+   offer page is independent of your working surfaces, so you can ship it anytime,
+   before or after the rest.
+3. **Your minting engine + receiver** -> run `scripts/deploy_engine.sh` (over SSH to
+   the box from step 1). Installs the receiver + the reconcile timer and prints
+   `ENGINE-DEPLOYED` AND `RECEIVER-URL=<url>`. CAPTURE that `RECEIVER-URL`: set it as
+   `MINT_RECEIVER_URL` in `.env` (via the key form), plus a `MINT_SECRET` (the
+   receiver's shared secret). This MUST happen before the console deploys, so the
+   console comes up already wired to your receiver.
+4. **Your operational surfaces (onboarding + console)** -> run
+   `scripts/deploy_surfaces.sh --operational`. With `MINT_RECEIVER_URL` + `MINT_SECRET`
+   set from step 3, the console deploys already pointed at your receiver and the run
+   seeds `ONBOARDER_BASE_URL`. The script REFUSES to deploy the console before the
+   receiver URL is known, so the console is never live in a "not configured" state.
+5. **Your daily maintenance** -> run `scripts/deploy_maintenance.sh` (same box,
    same SSH channel). Installs the two DAILY timers: `hermes-update.timer` (keeps
    the personal agent current) and `git-backup.timer` (pushes agency state to your
    backup remote, never secrets). Confirm `MAINTENANCE-DEPLOYED`.

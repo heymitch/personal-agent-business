@@ -50,3 +50,14 @@ teardown() { teardown_fake_bin; }
   [ "$status" -eq 0 ]
   [[ "$output" == *"ENGINE-DEPLOYED"* ]]
 }
+
+# Ordering teeth: the engine deploy captures the receiver URL so /setup can wire the
+# console's MINT_RECEIVER_URL AFTER the receiver exists (never before).
+@test "deploy_engine emits RECEIVER-URL so the console is wired only after the engine" {
+  run "$SCRIPTS_DIR/deploy_engine.sh" --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"RECEIVER-URL="* ]]
+  run "$SCRIPTS_DIR/deploy_engine.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"RECEIVER-URL="* ]]
+}

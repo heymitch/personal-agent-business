@@ -10,6 +10,11 @@ setup() {
   export VERCEL_TOKEN="vt-secret-value"
   export COMPOSIO_API_KEY="ck-secret-value"
   export ONBOARDER_BASE_URL="https://onb.example.com"
+  # The console proxies the box receiver, so a real deploy needs these set FIRST
+  # (the engine emits them). Present here so the all-surfaces real run can deploy
+  # the console; individual tests unset them to prove the ordering gate.
+  export MINT_RECEIVER_URL="https://receiver.example.com"
+  export MINT_SECRET="ms-secret-value"
 }
 teardown() { teardown_fake_bin; }
 
@@ -57,4 +62,28 @@ teardown() { teardown_fake_bin; }
   [[ "$output" == *"onboarding="* ]]
   [[ "$output" == *"landing="* ]]
   [[ "$output" == *"console="* ]]
+}
+
+# Ordering teeth: the console is a thin proxy to the box receiver, so it must NOT be
+# deployed before that receiver URL is known. With MINT_RECEIVER_URL unset, an
+# operational (console-bearing) deploy ERRORS and ships nothing, so the console is
+# never live in a "not configured" state.
+@test "deploy_surfaces refuses to deploy the console before the receiver URL is known" {
+  unset MINT_RECEIVER_URL
+  run "$SCRIPTS_DIR/deploy_surfaces.sh" --operational
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"MINT_RECEIVER_URL"* ]]
+  [[ "$output" != *"SURFACES-DEPLOYED"* ]]
+}
+
+# Separation teeth: the landing page deploys on its own, independent of the
+# operational console+onboarding group, and needs no receiver URL.
+@test "deploy_surfaces --landing deploys the landing page alone (no receiver needed)" {
+  unset MINT_RECEIVER_URL MINT_SECRET
+  run "$SCRIPTS_DIR/deploy_surfaces.sh" --landing
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"SURFACES-DEPLOYED"* ]]
+  [[ "$output" == *"landing="* ]]
+  [[ "$output" != *"console="* ]]
+  [[ "$output" != *"onboarding="* ]]
 }
