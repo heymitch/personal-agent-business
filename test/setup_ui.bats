@@ -67,12 +67,13 @@ setup() {
 }
 
 # ---- (b) tokened GET /api/schema returns groups ---------------------------
+# Vercel auth is a Claude Code connection (`vercel login`), so VERCEL_TOKEN is no
+# longer a collected field. AgentMail stays in the schema but is now OPTIONAL.
 @test "GET /api/schema with token returns schema groups for operator keys" {
   OUT="$(curl -s "http://127.0.0.1:$TEST_PORT/api/schema?t=$SETUP_TOKEN")"
   echo "$OUT" | grep -q '"groups"'
   echo "$OUT" | grep -q '"HETZNER_TOKEN"'
   echo "$OUT" | grep -q '"COMPOSIO_API_KEY"'
-  echo "$OUT" | grep -q '"VERCEL_TOKEN"'
   echo "$OUT" | grep -q '"AGENTMAIL_API_KEY"'
 }
 

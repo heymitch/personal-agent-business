@@ -28,9 +28,12 @@ pass() { echo "[PASS] $1: $2"; }
 fail() { echo "[FAIL] $1: $2"; FAILS+=("$1"); }
 
 # --- keys: required operator keys present (values never printed) -----------------
-REQUIRED=(HETZNER_TOKEN OPENAI_BASE_URL BRAIN_MODEL AGENTMAIL_API_KEY AGENTMAIL_INBOX \
+# Vercel auth is a Claude Code connection (`vercel login`, no token) and AgentMail
+# is optional (skip if the agent uses Gmail through Composio), so VERCEL_TOKEN /
+# AGENTMAIL_API_KEY / AGENTMAIL_INBOX are intentionally NOT required here.
+REQUIRED=(HETZNER_TOKEN OPENAI_BASE_URL BRAIN_MODEL \
           COMPOSIO_API_KEY CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID AGENT_DOMAIN \
-          OWNER_EMAIL VERCEL_TOKEN SLACK_BOT_TOKEN SLACK_APP_TOKEN SLACK_ALLOWED_USERS)
+          OWNER_EMAIL SLACK_BOT_TOKEN SLACK_APP_TOKEN SLACK_ALLOWED_USERS)
 if require_env "${REQUIRED[@]}" 2>/dev/null; then
   pass keys "all ${#REQUIRED[@]} operator keys present (values never printed)"
 else

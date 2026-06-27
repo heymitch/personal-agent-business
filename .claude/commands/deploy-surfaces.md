@@ -35,18 +35,26 @@ brand voice. The placeholders are clearly labeled so nothing is ambiguous.
 
 ---
 
-## Step 1: confirm Vercel auth (free)
+## Step 1: confirm Vercel is connected in Claude Code (free)
 
-Confirm the operator is logged into the Vercel CLI on this machine (or that
-`VERCEL_TOKEN` is set in `.env`). Validate WITHOUT printing the value:
+Vercel auth is a Claude Code connection, not a pasted token. Confirm the operator is
+connected by checking the logged-in CLI session:
 
 ```
-source lib/env.sh && load_env .env && require_env VERCEL_TOKEN COMPOSIO_API_KEY
+vercel whoami
 ```
 
-If either is missing, send the operator to the key form (`./scripts/setup.sh`) to
-add it. `COMPOSIO_API_KEY` is needed by the onboarding page's serverless functions
-(it lists the app catalog and mints connect links).
+If that prints a username, Vercel is connected. If it errors, have the operator run
+`vercel login` once (no token to copy, no key to store). Then confirm `COMPOSIO_API_KEY`
+is present (validate WITHOUT printing the value):
+
+```
+source lib/env.sh && load_env .env && require_env COMPOSIO_API_KEY
+```
+
+If `COMPOSIO_API_KEY` is missing, send the operator to the key form (`./scripts/setup.sh`)
+to add it. It is needed by the onboarding page's serverless functions (it lists the app
+catalog and mints connect links). No Vercel token is required.
 
 ---
 
@@ -106,9 +114,13 @@ source lib/env.sh && load_env .env && redact ONBOARDER_BASE_URL
 - Open the **onboarding** URL with a test `?user=` parameter. The app catalog loads
   and the Slack invite step shows.
 - Open the **operator-console** URL. The mint form shows the client account dropdown
-  (optional), person name, and person email. Click "Mint an agent": it returns the
-  "not connected yet" notice. That is correct for this slice. The button wires to real
-  provisioning later.
+  (optional), person name, and person email, plus a capabilities picker. The
+  capabilities (including "Voice-match my writing") are a per-client, build-time
+  choice you make LATER when you actually mint a client's agent, NOT a setup step.
+  Do not fill anything in now and do not ask the operator for their writing voice
+  here: voice-match is configured with the client's own samples at build time. Click
+  "Mint an agent": it returns the "not connected yet" notice. That is correct for this
+  slice. The button wires to real provisioning later.
 
 Tell the operator:
 

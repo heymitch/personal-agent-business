@@ -45,21 +45,21 @@ NON_SECRET_KEYS = {
 }
 
 # Keys the provisioning + deploy + mint chain needs before the operator can run.
-# Auto-detected / defaulted / set-later keys are intentionally NOT required:
+# Auto-detected / defaulted / set-later / connection-based keys are NOT required:
 #   SSH_PUBKEY (auto-detected), OPENAI_BASE_URL + BRAIN_MODEL (defaulted),
 #   SLACK_INVITE_ADDRESS (defaulted), ONBOARDER_BASE_URL (set by deploy),
-#   SLACK_ALLOWED_USERS (convenience), VERCEL_ORG_ID (often inferred).
+#   SLACK_ALLOWED_USERS (convenience), VERCEL_ORG_ID (often inferred),
+#   VERCEL_TOKEN (Vercel auth is a Claude Code connection: run `vercel login`
+#     once, no token needed), AGENTMAIL_API_KEY + AGENTMAIL_INBOX (optional: the
+#     agent's own inbox; skip if you use Gmail through Composio instead).
 REQUIRED_KEYS = {
     "HETZNER_TOKEN",
     "OPENAI_ADMIN_KEY",
-    "AGENTMAIL_API_KEY",
-    "AGENTMAIL_INBOX",
     "COMPOSIO_API_KEY",
     "CLOUDFLARE_API_TOKEN",
     "CLOUDFLARE_ACCOUNT_ID",
     "AGENT_DOMAIN",
     "OWNER_EMAIL",
-    "VERCEL_TOKEN",
     "SLACK_BOT_TOKEN",
     "SLACK_APP_TOKEN",
 }
