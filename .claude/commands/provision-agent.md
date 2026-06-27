@@ -1,14 +1,18 @@
 # /provision-agent
 
-Stand up the operator's OWN always-on personal agent: the tracer bullet that
-proves the whole provisioning chain before any client is ever minted. You are the
-guide. Walk the operator from `.env` to a live, always-on agent one step at a time,
-narrating as you go. You run the scripts; you own the judgment steps (OAuth
-approvals, the brain choice, move-up, error recovery). No key is ever printed back.
+Make sure you are connected to your OWN always-on personal agent box: the tracer
+that proves the whole chain before any client is ever minted. In Session 3 you
+already stood up your cloud agent. Session 4 BUILDS ON THAT SAME BOX, it does not
+provision a new one. The default here is to REUSE your Session-3 box (reconnect,
+verify it is reachable), then the rest of `/setup` installs the minting engine and
+deploys your surfaces onto it. Provisioning a brand-new box is an explicit FALLBACK,
+only for an operator who does not already have a Session-3 box.
 
-This command provisions YOUR box. Minting a client agent is a separate flow (the
-dashboard "Mint an agent for <client>" button, wired in a later slice). Here we get
-the operator's own agent live first, so the rest of the build has a proven chain.
+You are the guide. You run the steps; you own the judgment (SSH reachability,
+the brain choice, error recovery). No key is ever printed back.
+
+This command is about YOUR OWN box. Minting a client agent is a separate flow (the
+dashboard "Mint an agent for <client>" button).
 
 ---
 
@@ -27,25 +31,50 @@ operator that URL verbatim.
 
 Then read `PROGRESS.md`. Tell the operator where they are and the single next step.
 
-Ask, one question at a time, and explain what each answer is for before asking:
+---
 
-- "What do you want to call your agent? (short, lowercase, e.g. 'mitch' or 'kai')"
-  This becomes `AGENT_NAME`. Record in PROGRESS.md: `Agent name: <answer>`.
+## Phase 1: connect to your Session-3 box (DEFAULT, no charge)
 
-Do not ask for keys until the step that needs them.
+Your Session-3 box already exists. We reuse it. Reusing costs nothing: no new box,
+no new charge. Ask, one question at a time, explaining what each answer is for:
+
+- "From Session 3, what is your agent box's IP address?" This is `AGENT_IP`. It may
+  already be in `.env` (Session 3 wrote it when the box was created). Confirm it.
+- "And the path to the SSH private key you used to reach that box (e.g.
+  `~/.ssh/id_ed25519`)?" This is `SSH_KEY`. Confirm it is set.
+
+Put both in `.env` via the key form (or confirm the values already there). Then
+VERIFY the box is reachable WITHOUT printing any secret:
+
+```
+source lib/env.sh && load_env .env && require_env AGENT_IP
+ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15 \
+  ${SSH_KEY:+-i "$SSH_KEY"} "root@$AGENT_IP" \
+  'tail -n5 /var/log/wingman-provision.log 2>/dev/null; echo CONNECTED'
+```
+
+If you see `CONNECTED` (and ideally `WINGMAN-PROVISION-DONE` in the tail), the box
+is live and reachable. You are done here: skip the fallback entirely and continue
+`/setup` to install the engine and deploy surfaces ONTO this box.
+(`WINGMAN-PROVISION-DONE` is the box-side install-log token, not operator copy.)
+
+If SSH fails, help the operator fix the basics first (correct IP, correct
+`SSH_KEY`, the box is powered on in Hetzner). Only if they genuinely have NO
+Session-3 box do you fall through to the fallback below.
+
+Tick PROGRESS.md:
+```
+- [x] Reconnected to your Session-3 agent box (SSH reachable, no new charge)
+```
 
 ---
 
-## Phase 1: gather keys (free)
+## Fallback: provision a NEW box (ONLY if there is no Session-3 box)
 
-If `.env` does not exist: `cp .env.example .env` and either walk the operator
-through `./scripts/setup.sh` (guided browser form) or have them fill `.env` by hand.
+Do NOT run this if Phase 1 connected. This path creates a real, billable box and is
+only for an operator who never completed Session 3.
 
-Tick PROGRESS.md: `- [x] .env created and keys filled in`
-
----
-
-## Phase 2: preflight and dry-run (free, spends nothing)
+### F1: preflight and dry-run (free, spends nothing)
 
 Validate keys WITHOUT printing any value:
 
@@ -54,7 +83,7 @@ source lib/env.sh && load_env .env && require_env HETZNER_TOKEN AGENT_NAME OPENA
 ```
 
 `OPENAI_API_KEY` is optional. If blank, the box comes up brain-less and the operator
-connects a model by OAuth in the dashboard after provisioning (see Phase 5).
+connects a model by OAuth in the dashboard after provisioning (see F4).
 
 Then show the operator exactly what WILL happen, at zero cost:
 
@@ -65,15 +94,7 @@ scripts/dry_run_all.sh
 Confirm the final line is `DRY-RUN-ALL-OK`. The preview prints the real Hetzner and
 Cloudflare request bodies with the token collapsed to a byte count. No API is hit.
 
-Tick PROGRESS.md:
-```
-- [x] Keys validated (no values printed)
-- [x] Dry-run completed: you saw what will happen
-```
-
----
-
-## Phase 3: create the box (FIRST CHARGE: always flag it)
+### F2: create the box (FIRST CHARGE: always flag it)
 
 Say:
 > "Next step creates a real Hetzner box. Hetzner bills it HOURLY, capped at about
@@ -94,8 +115,7 @@ ssh root@<ip> 'tail -n50 /var/log/wingman-provision.log'
 ```
 
 until `WINGMAN-PROVISION-DONE` appears (about 4 to 8 minutes). Do not continue until
-it does. (`WINGMAN-PROVISION-DONE` is the box-side install log token, not operator
-copy: it is the sentinel the install log emits.)
+it does.
 
 Tick PROGRESS.md:
 ```
@@ -103,9 +123,7 @@ Tick PROGRESS.md:
 - [x] WINGMAN-PROVISION-DONE confirmed in the boot log
 ```
 
----
-
-## Phase 4: give the agent a private web address (Cloudflare)
+### F3: give the agent a private web address (Cloudflare)
 
 ```
 scripts/cf_portal.sh
@@ -126,9 +144,7 @@ Expect `CONNECTOR-OK`.
 
 Tick PROGRESS.md: `- [x] Private web address live behind the Cloudflare email gate`
 
----
-
-## Phase 5: wire the brain, apps, and Slack
+### F4: wire the brain, apps, and Slack
 
 ```
 scripts/configure_box.sh <ip>
@@ -157,9 +173,7 @@ Tick PROGRESS.md:
 - [x] Slack connected (bot token + app token on the box)
 ```
 
----
-
-## Phase 6: move the agent up (judgment step)
+### F5: move the agent up (judgment step)
 
 Lift the operator's local SOUL, skills, and memory to the box:
 
@@ -180,10 +194,10 @@ Tick PROGRESS.md:
 
 ---
 
-## Phase 7: verify and hand off
+## Verify and hand off
 
-- Open the `URL=` from Phase 4 in a browser. The Cloudflare email gate appears, the
-  operator logs in, and the dashboard loads.
+- Open the box's `URL=` in a browser. The Cloudflare email gate appears, the operator
+  logs in, and the dashboard loads.
 - DM the agent in Slack. The reply comes back as their own personal agent.
 
 Tick PROGRESS.md:
@@ -193,6 +207,7 @@ Tick PROGRESS.md:
 ```
 
 Tell the operator:
-> "Your own always-on personal agent is live, behind your email gate, talking in
-> Slack, and it knows who it serves. This is the tracer bullet: the same chain now
-> mints an agent for each client. Welcome to the other side."
+> "You are connected to your own always-on personal agent box, behind your email
+> gate, talking in Slack. This is the tracer bullet. The rest of /setup installs the
+> minting engine and deploys your surfaces onto THIS SAME box, and the same chain
+> then mints an agent for each client. Welcome to the other side."
