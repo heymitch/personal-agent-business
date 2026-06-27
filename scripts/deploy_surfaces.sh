@@ -7,8 +7,8 @@
 #
 # Each surface is a static + serverless Vercel project. We push it with the
 # LOGGED-IN `vercel` CLI (`vercel deploy --prod`). Vercel auth is a Claude Code
-# connection: run `vercel login` once and the persisted session deploys. No token
-# is required; if VERCEL_TOKEN happens to be set we pass it through, never echoed.
+# connection: run `vercel login` once and the persisted session deploys. There is
+# no token to set and no --token flag; the logged-in CLI session IS the auth.
 # COMPOSIO_API_KEY is set into the onboarding project's Vercel env (its serverless
 # api/ functions need it). The console's runtime env (PAO_PASSWORD_HASH,
 # SESSION_SECRET, MINT_RECEIVER_URL, MINT_SECRET) is pushed when set -- each piped
@@ -17,8 +17,8 @@
 #
 # Usage: ./deploy_surfaces.sh [--dry-run]
 # Reads: COMPOSIO_API_KEY  (required, from .env or environment)
-#   Vercel auth comes from `vercel login` (no token required); VERCEL_TOKEN is
-#   honored if present but optional.
+#   Vercel auth comes from `vercel login` (a Claude Code connection); there is no
+#   token and no --token flag.
 #   plus optional console env: PAO_PASSWORD_HASH, SESSION_SECRET, MINT_RECEIVER_URL, MINT_SECRET
 # shellcheck source-path=SCRIPTDIR/..
 set -euo pipefail
@@ -37,11 +37,7 @@ require_env COMPOSIO_API_KEY
 
 VERCEL="${VERCEL:-vercel}"
 # Vercel auth is a Claude Code connection: the LOGGED-IN `vercel login` session is
-# the supported path, so no token is required. If VERCEL_TOKEN is set in the
-# environment we pass it through on the flag (never echoed); otherwise we deploy
-# with the logged-in session and no --token flag at all.
-TOKEN_ARGS=()
-[ -n "${VERCEL_TOKEN:-}" ] && TOKEN_ARGS=(--token "$VERCEL_TOKEN")
+# the only path. There is no token to read and no --token flag on any call.
 SURFACES_DIR="$HERE/../surfaces"
 # Deploy order matters: onboarding first so its URL can seed ONBOARDER_BASE_URL,
 # then landing, then the operator console (which links to both).
@@ -52,11 +48,7 @@ redact_len() { printf '<%s bytes>' "${#1}"; }
 
 if [ "$DRY_RUN" -eq 1 ]; then
   echo "DRY-RUN deploy sequence (operator Vercel via logged-in CLI, no API hit):"
-  if [ -n "${VERCEL_TOKEN:-}" ]; then
-    echo "  Vercel auth: VERCEL_TOKEN present ($(redact_len "$VERCEL_TOKEN")); passed through on --token."
-  else
-    echo "  Vercel auth: logged-in CLI session (run 'vercel login' once; no token needed)."
-  fi
+  echo "  Vercel auth: logged-in CLI session (run 'vercel login' once; no token, no --token flag)."
   echo "  COMPOSIO_API_KEY=$(redact_len "$COMPOSIO_API_KEY")"
   for s in $SURFACES; do
     echo "== surface: $s =="
@@ -91,7 +83,7 @@ deploy_one() {
     # The onboarding serverless api/ needs the Composio key at runtime. Set it
     # into the project env (piped on stdin so it never lands on the command line).
     printf '%s' "$COMPOSIO_API_KEY" | \
-      ( cd "$dir" && "$VERCEL" env add COMPOSIO_API_KEY production ${TOKEN_ARGS[@]+"${TOKEN_ARGS[@]}"} --yes >/dev/null 2>&1 || true )
+      ( cd "$dir" && "$VERCEL" env add COMPOSIO_API_KEY production --yes >/dev/null 2>&1 || true )
   fi
   if [ "$surface" = "operator-console" ]; then
     # The console is a thin gated proxy. Push only the runtime env vars that are set; each is piped
@@ -102,10 +94,10 @@ deploy_one() {
     for v in PAO_PASSWORD_HASH SESSION_SECRET MINT_RECEIVER_URL MINT_SECRET; do
       [ -n "${!v:-}" ] || continue
       printf '%s' "${!v}" | \
-        ( cd "$dir" && "$VERCEL" env add "$v" production ${TOKEN_ARGS[@]+"${TOKEN_ARGS[@]}"} --yes >/dev/null 2>&1 || true )
+        ( cd "$dir" && "$VERCEL" env add "$v" production --yes >/dev/null 2>&1 || true )
     done
   fi
-  url="$( cd "$dir" && "$VERCEL" deploy --prod --yes ${TOKEN_ARGS[@]+"${TOKEN_ARGS[@]}"} 2>/dev/null | tail -n1 || true )"
+  url="$( cd "$dir" && "$VERCEL" deploy --prod --yes 2>/dev/null | tail -n1 || true )"
   [ -n "$url" ] || url="(deployed: see Vercel dashboard)"
   printf '%s' "$url"
 }
