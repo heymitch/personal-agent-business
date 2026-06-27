@@ -10,7 +10,7 @@ setup() {
   export SSH_PUBKEY="ssh-ed25519 AAAA op@host"
   export CLOUDFLARE_API_TOKEN="ck" CLOUDFLARE_ACCOUNT_ID="acct"
   export AGENT_DOMAIN="op.example.com" OWNER_EMAIL="op@x.com"
-  export VERCEL_TOKEN="fake-vercel-token" COMPOSIO_API_KEY="fake-composio-key"
+  export COMPOSIO_API_KEY="fake-composio-key"
   CLOUD_INIT_FILE="$(mktemp "$REPO_ROOT/test/tmp/cloudinit.XXXXXX")"
   printf 'stub\n' > "$CLOUD_INIT_FILE"
   export CLOUD_INIT_FILE
