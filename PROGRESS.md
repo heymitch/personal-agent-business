@@ -35,8 +35,8 @@ everything, one step at a time.
 - [ ] Dry-run completed -- you saw DRY-RUN-ALL-OK
 
 ### Phase 3+ -- Stand up the business
-- [ ] Your own always-on personal agent live (first charge ~EUR 7.50/mo -- you
-      said yes before this ran)
+- [ ] Your own always-on personal agent live (a new box is billed hourly, capped at
+      about $8/mo prorated, you said yes before any charge ran)
 - [ ] Selling surfaces deployed (console + onboarding + landing)
 - [ ] Minting engine deployed to your box (receiver + reconcile timer)
 - [ ] On-demand client minting wired up

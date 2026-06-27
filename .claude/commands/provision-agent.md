@@ -76,8 +76,9 @@ Tick PROGRESS.md:
 ## Phase 3: create the box (FIRST CHARGE: always flag it)
 
 Say:
-> "Next step creates a real Hetzner box (about EUR 7.50/mo). This is the first
-> charge. Shall I go ahead?"
+> "Next step creates a real Hetzner box. Hetzner bills it HOURLY, capped at about
+> $8 a month and prorated, so a quick test costs cents. This is the first charge.
+> Shall I go ahead?"
 
 Wait for an explicit yes. Then:
 
@@ -98,7 +99,7 @@ copy: it is the sentinel the install log emits.)
 
 Tick PROGRESS.md:
 ```
-- [x] Hetzner box created (~EUR 7.50/mo, you approved this charge first)
+- [x] Hetzner box created (billed hourly, capped at about $8/mo prorated, you approved this charge first)
 - [x] WINGMAN-PROVISION-DONE confirmed in the boot log
 ```
 

@@ -76,7 +76,8 @@ Phase 1 -- Preflight + dry-run (free, no charge)
 Phase 2+ -- Stand up the business (added in later setup steps)
   Your own always-on personal agent, your selling surfaces, and on-demand
   client minting. The /setup command narrates each phase as it is built out.
-  The first cloud box is the FIRST CHARGE (~EUR 7.50/mo) -- ALWAYS flag it and
+  Provisioning a new cloud box is the FIRST CHARGE: Hetzner bills it HOURLY, capped
+  at about $8 a month and prorated, so a quick test costs cents. ALWAYS flag it and
   wait for a "yes" before anything billable runs.
 ```
 

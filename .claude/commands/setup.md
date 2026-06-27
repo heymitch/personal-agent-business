@@ -73,9 +73,11 @@ Before each phase, glance at `PROGRESS.md` (and you may run `/doctor` to see wha
 is already green). If a phase's box is already ticked and `/doctor` shows it
 healthy, tell the operator it is done and move to the next. Otherwise run it.
 
-1. **Your own always-on personal agent** -> run `/provision-agent`. This is the
-   FIRST CHARGE (~EUR 7.50/mo). Flag it clearly and wait for a "yes" before it
-   runs. Confirm the agent answers in the owner's voice before moving on.
+1. **Your own always-on personal agent** -> run `/provision-agent`. If a new box
+   is provisioned, that is the FIRST CHARGE: Hetzner bills it HOURLY, capped at
+   about $8 a month and prorated, so a quick test costs cents. Flag it clearly and
+   wait for a "yes" before it runs. Confirm the agent answers in the owner's voice
+   before moving on.
 2. **Your selling surfaces** -> run `/deploy-surfaces`. Deploys the console +
    onboarding + landing to the operator's Vercel and seeds `ONBOARDER_BASE_URL`.
 3. **Your minting engine** -> run `scripts/deploy_engine.sh` (over SSH to the box
