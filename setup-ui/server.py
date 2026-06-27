@@ -42,6 +42,10 @@ NON_SECRET_KEYS = {
     "ONBOARDER_BASE_URL",
     "SLACK_INVITE_ADDRESS",
     "VERCEL_ORG_ID",
+    "MINT_RECEIVER_URL",
+    "CF_ACCESS_AUTH_DOMAIN",
+    "CF_ACCESS_AUD",
+    "CONSOLE_HOST",
 }
 
 # Keys the provisioning + deploy + mint chain needs before the operator can run.

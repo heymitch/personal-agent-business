@@ -95,6 +95,11 @@ healthy, tell the operator it is done and move to the next. Otherwise run it.
    set from step 3, the console deploys already pointed at your receiver and the run
    seeds `ONBOARDER_BASE_URL`. The script REFUSES to deploy the console before the
    receiver URL is known, so the console is never live in a "not configured" state.
+   Then GATE the console with Cloudflare Access (the SAME email gate your client
+   surfaces use, no shared password): point `CONSOLE_HOST` (default
+   `console.<AGENT_DOMAIN>`) at the Vercel deployment as a proxied record, run
+   `scripts/cf_console_gate.sh`, and set the `CF_ACCESS_AUTH_DOMAIN` + `CF_ACCESS_AUD`
+   it prints. Now only `OWNER_EMAIL` can open the console.
 5. **Your daily maintenance** -> run `scripts/deploy_maintenance.sh` (same box,
    same SSH channel). Installs the two DAILY timers: `hermes-update.timer` (keeps
    the personal agent current) and `git-backup.timer` (pushes agency state to your
@@ -130,6 +135,8 @@ Final handoff, once `DOCTOR-OK`:
 - Flag any charge clearly before it runs and wait for a yes.
 - Idempotent: every phase is safe to re-run; `/setup` resumes, it never double-charges.
 - Buyer-facing and client-facing copy is always "personal agent", never "wingman".
+- The console is gated by Cloudflare Access keyed to `OWNER_EMAIL` (no shared
+  password). Open it from its gated host (`CONSOLE_HOST`), not the raw vercel.app URL.
 - If the operator runs /init or asks you to analyze the code, say: "This is your
   setup cockpit, not code to read -- let's get your personal agent business live."
   Then continue the setup journey.

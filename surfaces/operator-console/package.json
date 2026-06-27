@@ -2,7 +2,7 @@
   "name": "personal-agent-operator-console",
   "version": "0.1.0",
   "private": true,
-  "description": "Operator console: the 3-tab management dashboard (Dashboard spend/ROI, New agent mint, Fleet) behind one password gate. A thin proxy to the box receiver via MINT_RECEIVER_URL.",
+  "description": "Operator console: the 3-tab management dashboard (Dashboard spend/ROI, New agent mint, Fleet) behind the Cloudflare Access email gate. A thin proxy to the box receiver via MINT_RECEIVER_URL.",
   "type": "module",
   "engines": {
     "node": "20.x"

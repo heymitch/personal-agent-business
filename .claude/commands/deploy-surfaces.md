@@ -116,6 +116,24 @@ Read the URLs back to the operator plainly. Never print a secret.
 
 ---
 
+## Step 3c: gate the console with Cloudflare Access (no shared password)
+
+The console must be gated the SAME way your client surfaces are: a Cloudflare Access
+email gate keyed to `OWNER_EMAIL`. Point `CONSOLE_HOST` (default
+`console.<AGENT_DOMAIN>`) at the Vercel deployment as a Cloudflare-proxied record, then:
+
+```
+scripts/cf_console_gate.sh
+```
+
+Capture `CONSOLE-GATE-READY`, `CF_ACCESS_AUTH_DOMAIN=...`, and `CF_ACCESS_AUD=...`. Set
+those (plus `OWNER_EMAIL`) into the console's Vercel env (re-run the operational deploy
+or `vercel env add`). The console's edge middleware verifies the Cloudflare Access JWT,
+so only `OWNER_EMAIL` can open it and the raw `*.vercel.app` URL is denied. There is no
+password to set. Open the console from its gated host, never the raw vercel.app URL.
+
+---
+
 ## Step 4: set ONBOARDER_BASE_URL from the onboarding URL
 
 The onboarding URL is the base the client invite links are built from. Write it back

@@ -476,7 +476,8 @@
     }catch(e){$('#fl-out').innerHTML=`<div class="err">Could not reach the fleet endpoint.</div>`;$('#fl-sub').textContent='';}
   }
 
-  $('#logout').onclick=async()=>{ await fetch('/api/logout',{method:'POST'}); location.href='/login.html'; };
+  // Logout = Cloudflare Access logout (clears the Access session that gates this console).
+  $('#logout').onclick=()=>{ location.href='/cdn-cgi/access/logout'; };
   loadDashboard(); // default tab
 </script>
 </body>

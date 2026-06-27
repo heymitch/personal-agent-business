@@ -19,13 +19,24 @@ setup() { CONSOLE="$REPO_ROOT/surfaces/operator-console"; export CONSOLE; }
   [ "$status" -ne 0 ]
 }
 
-# ---- the password wall -------------------------------------------------------
-@test "console ships the Edge-middleware password wall + login page" {
+# ---- the Cloudflare Access email gate (no static password) -------------------
+@test "console is gated by the Cloudflare Access email gate, keyed to the operator email" {
   [ -f "$CONSOLE/middleware.js" ]
-  [ -f "$CONSOLE/login.html" ]
-  grep -q 'pao_session' "$CONSOLE/middleware.js"
-  grep -q 'Response.redirect' "$CONSOLE/middleware.js"
-  grep -q 'PAO_PASSWORD_HASH' "$CONSOLE/api/login.ts"
+  # Verifies the Cloudflare Access JWT against the operator's team, app aud, and email.
+  grep -q 'CF_ACCESS_AUTH_DOMAIN' "$CONSOLE/middleware.js"
+  grep -q 'CF_ACCESS_AUD' "$CONSOLE/middleware.js"
+  grep -q 'OWNER_EMAIL' "$CONSOLE/middleware.js"
+  grep -qi 'cf-access-jwt-assertion' "$CONSOLE/middleware.js"
+}
+
+@test "console no longer ships the static password wall" {
+  [ ! -f "$CONSOLE/login.html" ]
+  [ ! -f "$CONSOLE/api/login.ts" ]
+  [ ! -f "$CONSOLE/api/logout.ts" ]
+  # No trace of the old shared-password gate anywhere in the console.
+  run grep -RniE --exclude-dir=node_modules --exclude-dir=.vercel \
+    'PAO_PASSWORD_HASH|pao_session|SESSION_SECRET' "$CONSOLE"
+  [ "$status" -ne 0 ]
 }
 
 # ---- thin proxy to the box receiver -----------------------------------------

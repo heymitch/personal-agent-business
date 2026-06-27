@@ -19,15 +19,19 @@
 # connection: run `vercel login` once and the persisted session deploys. There is
 # no token to set and no --token flag; the logged-in CLI session IS the auth.
 # COMPOSIO_API_KEY is set into the onboarding project's Vercel env (its serverless
-# api/ functions need it). The console's runtime env (MINT_RECEIVER_URL, MINT_SECRET)
-# is pushed on stdin so no secret lands on the command line. --dry-run constructs the
-# exact commands with every secret collapsed to a byte count and touches no real API.
+# api/ functions need it). The console's runtime env (MINT_RECEIVER_URL, MINT_SECRET
+# for the receiver proxy; CF_ACCESS_AUTH_DOMAIN, CF_ACCESS_AUD, OWNER_EMAIL for the
+# Cloudflare Access gate) is pushed on stdin so no secret lands on the command line.
+# --dry-run constructs the exact commands with every secret collapsed to a byte count
+# and touches no real API.
 #
 # Usage: ./deploy_surfaces.sh [--dry-run] [--landing | --operational]
 # Reads: COMPOSIO_API_KEY  (required when onboarding is deployed)
 #   Vercel auth comes from `vercel login` (a Claude Code connection); there is no
 #   token and no --token flag.
 #   console env (required to deploy the console): MINT_RECEIVER_URL, MINT_SECRET
+#   console Cloudflare Access gate (push when set): CF_ACCESS_AUTH_DOMAIN,
+#     CF_ACCESS_AUD, OWNER_EMAIL  (from cf_console_gate.sh)
 # shellcheck source-path=SCRIPTDIR/..
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -95,7 +99,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
         echo "   (console deploy BLOCKED on a real run: deploy the engine first, then set"
         echo "    MINT_RECEIVER_URL + MINT_SECRET so the console is never 'not configured')"
       fi
-      for v in MINT_RECEIVER_URL MINT_SECRET; do
+      for v in MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL; do
         if [ -n "${!v:-}" ]; then
           echo "   vercel env add $v production = $(redact_len "${!v}")"
         else
@@ -124,12 +128,14 @@ deploy_one() {
       ( cd "$dir" && "$VERCEL" env add COMPOSIO_API_KEY production --yes >/dev/null 2>&1 || true )
   fi
   if [ "$surface" = "operator-console" ]; then
-    # The console is a thin Cloudflare-Access-gated proxy. Push the runtime env that
-    # points it at the box receiver; each is piped on stdin so a secret never lands
-    # on the command line. MINT_RECEIVER_URL is the box receiver URL; MINT_SECRET
-    # signs the proxy->receiver calls. Both are required (gated above).
+    # The console is a thin Cloudflare-Access-gated proxy. Push the runtime env on
+    # stdin so a secret never lands on the command line. MINT_RECEIVER_URL is the box
+    # receiver URL and MINT_SECRET signs the proxy->receiver calls (both required,
+    # gated above). CF_ACCESS_AUTH_DOMAIN + CF_ACCESS_AUD + OWNER_EMAIL drive the
+    # Cloudflare Access email gate in middleware.js (from cf_console_gate.sh); pushed
+    # when set, and the middleware fails CLOSED if any is missing.
     local v
-    for v in MINT_RECEIVER_URL MINT_SECRET; do
+    for v in MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL; do
       [ -n "${!v:-}" ] || continue
       printf '%s' "${!v}" | \
         ( cd "$dir" && "$VERCEL" env add "$v" production --yes >/dev/null 2>&1 || true )
