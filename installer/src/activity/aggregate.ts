@@ -7,7 +7,6 @@ import type { ActivityRecord } from "./activity-log";
  */
 export const VALUE_PER_ACTION: Record<string, number> = {
   repurpose: 150,
-  "voice-match": 100,
   "job-scan": 75,
   "trend-jack": 120,
   "kit-schedule": 100,
@@ -27,7 +26,6 @@ export const VALUE_PER_ACTION: Record<string, number> = {
 export const ATTRIBUTION_WEIGHT: Record<string, number> = {
   // writer (AI does the work)
   repurpose: 0.8,
-  "voice-match": 0.8,
   "job-scan": 0.7,
   "trend-jack": 0.8,
   "kit-schedule": 0.7,

@@ -114,13 +114,11 @@ source lib/env.sh && load_env .env && redact ONBOARDER_BASE_URL
 - Open the **onboarding** URL with a test `?user=` parameter. The app catalog loads
   and the Slack invite step shows.
 - Open the **operator-console** URL. The mint form shows the client account dropdown
-  (optional), person name, and person email, plus a capabilities picker. The
-  capabilities (including "Voice-match my writing") are a per-client, build-time
-  choice you make LATER when you actually mint a client's agent, NOT a setup step.
-  Do not fill anything in now and do not ask the operator for their writing voice
-  here: voice-match is configured with the client's own samples at build time. Click
-  "Mint an agent": it returns the "not connected yet" notice. That is correct for this
-  slice. The button wires to real provisioning later.
+  (optional), person name, and person email, plus a capabilities picker. Those are a
+  per-client, build-time choice you make LATER when you actually mint a client's agent,
+  NOT a setup step, so do not fill anything in now. Click "Mint an agent": it returns
+  the "not connected yet" notice. That is correct for this slice. The button wires to
+  real provisioning later.
 
 Tell the operator:
 
