@@ -49,9 +49,69 @@ while [ $# -gt 0 ]; do case "$1" in
 esac; done
 
 VERCEL="${VERCEL:-vercel}"
-# Vercel auth is a Claude Code connection: the LOGGED-IN `vercel login` session is
-# the only path. There is no token to read and no --token flag on any call.
+CURL="${CURL:-curl}"
+# Vercel auth is the LOGGED-IN `vercel login` session: that is the only thing the
+# operator sets up, and the `vercel` CLI deploys with it directly (no --token flag).
+# The few direct Vercel API calls we make (disable Deployment Protection on the public
+# onboarding project; set + verify the console env) read that SAME logged-in token from
+# the CLI's on-disk config via vercel_cli_token; the value is never printed.
+VERCEL_API="${VERCEL_API:-https://api.vercel.com}"
 SURFACES_DIR="$HERE/../surfaces"
+
+# Read the logged-in Vercel CLI token from its on-disk config. NEVER prints the value.
+# Falls back to VERCEL_API_TOKEN / VERCEL_TOKEN when set (the test harness uses this).
+vercel_cli_token() {
+  local f tok
+  for f in \
+    "$HOME/.local/share/com.vercel.cli/auth.json" \
+    "$HOME/Library/Application Support/com.vercel.cli/auth.json" \
+    "$HOME/.vercel/auth.json"; do
+    [ -f "$f" ] || continue
+    tok="$(jq -r '.token // empty' "$f" 2>/dev/null || true)"
+    [ -n "$tok" ] && { printf '%s' "$tok"; return 0; }
+  done
+  tok="${VERCEL_API_TOKEN:-${VERCEL_TOKEN:-}}"
+  [ -n "$tok" ] && { printf '%s' "$tok"; return 0; }
+  return 1
+}
+
+# projectId / orgId for a linked surface, written by `vercel link` / the first deploy.
+# A test override (VERCEL_PROJECT_ID_OVERRIDE) lets the API plumbing run without a real link.
+read_project_id() { jq -r '.projectId // empty' "$1/.vercel/project.json" 2>/dev/null || true; }
+read_org_id()     { jq -r '.orgId // empty'     "$1/.vercel/project.json" 2>/dev/null || true; }
+project_id_for() {
+  local p; p="$(read_project_id "$1")"
+  [ -n "$p" ] || p="${VERCEL_PROJECT_ID_OVERRIDE:-}"
+  printf '%s' "$p"
+}
+
+# Fix 2: Vercel teams default ssoProtection to "all_except_custom_domains", which gates the
+# PUBLIC onboarding page behind Vercel SSO so clients cannot open their connect links. After
+# onboarding deploys, disable Deployment Protection for the ONBOARDING project ONLY
+# (ssoProtection=null). The operator console is intentionally left protected (Cloudflare
+# Access gates it). Best-effort: never prints the token, never fails the deploy.
+make_onboarding_public() {
+  local dir="$SURFACES_DIR/onboarding" proj tok team q R
+  proj="$(project_id_for "$dir")"
+  tok="$(vercel_cli_token || true)"
+  if [ -z "$proj" ] || [ -z "$tok" ]; then
+    echo "WARN: could not resolve the onboarding projectId or a Vercel CLI token; disable" >&2
+    echo "      Deployment Protection by hand (Vercel > onboarding project > Settings >" >&2
+    echo "      Deployment Protection > Vercel Authentication: Off) so clients can connect." >&2
+    return 0
+  fi
+  team="$(read_org_id "$dir")"; q=""; [ -n "$team" ] && q="?teamId=$team"
+  # Body on stdin (--data @-) so neither the token nor the payload lands on argv.
+  R="$(printf '%s' '{"ssoProtection":null}' \
+        | "$CURL" -sS -X PATCH "$VERCEL_API/v9/projects/$proj$q" \
+            -H "Authorization: Bearer $tok" -H "Content-Type: application/json" \
+            --data @- 2>/dev/null || true)"
+  if printf '%s' "$R" | jq -e '.ssoProtection == null' >/dev/null 2>&1; then
+    echo "ONBOARDING-PUBLIC project=$proj (Vercel Deployment Protection disabled; console stays gated)"
+  else
+    echo "ONBOARDING-PUBLIC project=$proj (requested ssoProtection=null; confirm Deployment Protection is Off if a client hits a Vercel login)"
+  fi
+}
 
 # Resolve the selected surfaces. ORDER matters: onboarding first so its URL can seed
 # ONBOARDER_BASE_URL, then landing, then the operator console LAST (it proxies the
@@ -93,6 +153,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
     echo "   cd $SURFACES_DIR/$s"
     if [ "$s" = "onboarding" ]; then
       echo "   vercel env add COMPOSIO_API_KEY production"
+      echo "   disable Vercel Deployment Protection for onboarding (PATCH $VERCEL_API/v9/projects/<id> body {\"ssoProtection\":null}) so clients can open connect links (the operator dashboard keeps its own gate)"
     fi
     if [ "$s" = "operator-console" ]; then
       if [ -z "${MINT_RECEIVER_URL:-}" ] || [ -z "${MINT_SECRET:-}" ]; then
@@ -151,7 +212,7 @@ TOKEN="SURFACES-DEPLOYED"
 for s in $SURFACES; do
   url="$(deploy_one "$s")"
   case "$s" in
-    onboarding)       TOKEN="$TOKEN onboarding=$url";;
+    onboarding)       TOKEN="$TOKEN onboarding=$url"; make_onboarding_public;;
     landing)          TOKEN="$TOKEN landing=$url";;
     operator-console) TOKEN="$TOKEN console=$url";;
   esac
