@@ -41,3 +41,17 @@ teardown() { teardown_fake_bin; }
   grep -q "CF_ACCESS_AUTH_DOMAIN=" "$SCRIPTS_DIR/cf_console_gate.sh"
   grep -q "CF_ACCESS_AUD=" "$SCRIPTS_DIR/cf_console_gate.sh"
 }
+
+# Fix 3 teeth: when it creates the CNAME, it does the cert dance in the right ORDER --
+# grey (proxied=false) so Vercel can issue the cert, poll until not misconfigured, THEN
+# orange (proxied=true) so Access fronts it. A proxied-first record would 525 after login.
+@test "cf_console_gate --dry-run does the cert dance grey->cert->orange in order" {
+  run "$SCRIPTS_DIR/cf_console_gate.sh" --dry-run --cname-target cname.vercel-dns.com
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"proxied=false"* ]]
+  [[ "$output" == *"proxied=true"* ]]
+  [[ "$output" == *"misconfigured"* ]]
+  grey="$(printf '%s\n' "$output" | grep -n "proxied=false" | head -1 | cut -d: -f1)"
+  orange="$(printf '%s\n' "$output" | grep -n "proxied=true" | head -1 | cut -d: -f1)"
+  [ -n "$grey" ] && [ -n "$orange" ] && [ "$grey" -lt "$orange" ]
+}
