@@ -73,3 +73,28 @@ teardown() { rm -f "$TMP_ENV"; }
   [ "$status" -eq 1 ]
   [[ "$output" == *"WHITESPACE_KEY"* ]]
 }
+
+# Live-deploy hardening fix 5: derive the tunnel ID from the box's cloudflared connector
+# token (base64 of {"a","t","s"}) so we target the real tunnel by ID, not a guessed name.
+# Case must be preserved (the live run's real tunnel was capital-G "Goose...").
+@test "tunnel_id_from_token decodes the base64 connector token to its tunnel id (.t)" {
+  source "$LIB_DIR/env.sh"
+  tok="$(printf '%s' '{"a":"acc","t":"Goose-7f3a-TID","s":"sek"}' | base64)"
+  run tunnel_id_from_token "$tok"
+  [ "$status" -eq 0 ]
+  [ "$output" = "Goose-7f3a-TID" ]
+}
+
+@test "tunnel_id_from_token returns non-zero for an empty or junk token" {
+  source "$LIB_DIR/env.sh"
+  run tunnel_id_from_token ""
+  [ "$status" -ne 0 ]
+  [ -z "$output" ]
+}
+
+# Teeth: cf_ssh targets the tunnel by the token-derived id and matches the name fallback
+# case-insensitively (so a capitalised tunnel name is not missed).
+@test "cf_ssh resolves the tunnel by token id with a case-insensitive name fallback" {
+  grep -q "tunnel_id_from_token" "$SCRIPTS_DIR/cf_ssh.sh"
+  grep -q "ascii_downcase" "$SCRIPTS_DIR/cf_ssh.sh"
+}

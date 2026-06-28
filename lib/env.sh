@@ -35,3 +35,20 @@ require_env() {
   fi
   return 0
 }
+
+# Decode a cloudflared connector token (base64 of {"a","t","s"}) to its tunnel id (.t).
+# A token-managed cloudflared tunnel is best targeted by ID: matching by a guessed name
+# can miss the real tunnel (its name may be capitalised, e.g. "Goose..."). Prints the id
+# (case preserved) and returns 0, or prints nothing and returns 1.
+tunnel_id_from_token() {
+  local tok="${1:-}" json id
+  [ -n "$tok" ] || return 1
+  command -v jq >/dev/null 2>&1 || return 1
+  # Try GNU (-d) then BSD (-D) decode; the value is base64 of a small JSON object.
+  json="$(printf '%s' "$tok" | base64 -d 2>/dev/null || true)"
+  [ -n "$json" ] || json="$(printf '%s' "$tok" | base64 -D 2>/dev/null || true)"
+  [ -n "$json" ] || return 1
+  id="$(printf '%s' "$json" | jq -r '.t // empty' 2>/dev/null || true)"
+  [ -n "$id" ] || return 1
+  printf '%s' "$id"
+}
