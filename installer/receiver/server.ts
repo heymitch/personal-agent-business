@@ -38,8 +38,8 @@ import { makeAgentRegistry } from "../src/registry/agent-registry.js";
 import { aggregateDashboard } from "../src/dashboard/aggregate.js";
 import { rollupTeams, teamOf } from "../src/dashboard/teams.js";
 import { makeActivityLog } from "../src/activity/activity-log.js";
-import { aggregateActivity, ATTRIBUTION_WEIGHT } from "../src/activity/aggregate.js";
-import { parseDefaultSkills, mergeDefaultSkills } from "../src/registry/default-skills.js";
+import { aggregateActivity, ATTRIBUTION_WEIGHT, VALUE_PER_ACTION } from "../src/activity/aggregate.js";
+import { parseAgentProfiles, resolveMintSkills } from "../src/registry/agent-profiles.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.SIM_PORT ?? 8788);
@@ -115,7 +115,8 @@ function latestStatusBySlug(): Record<string, { hermesVersion?: string; updatedA
 }
 
 // Attribution weights, re-read per request so the operator can tune them (weights.json of
-// { capability: weight }) without a restart. Merged over the shipped defaults.
+// { capability: weight }) without a restart. Merged over the shipped defaults (empty by default;
+// the operator's capability ids are their own, so there is no built-in catalog).
 function attributionWeights(): Record<string, number> {
   const f = process.env.ATTRIBUTION_FILE ?? join(here, "weights.json");
   try {
@@ -123,6 +124,19 @@ function attributionWeights(): Record<string, number> {
     return { ...ATTRIBUTION_WEIGHT, ...override };
   } catch {
     return { ...ATTRIBUTION_WEIGHT };
+  }
+}
+
+// Per-action dollar rates, re-read per request so the operator can tune them (rates.json of
+// { capability: usdPerAction }) without a restart. Merged over the shipped defaults (empty by
+// default: the operator's skill/capability ids are their own, so there is no built-in rate card).
+function valuePerAction(): Record<string, number> {
+  const f = process.env.RATES_FILE ?? join(here, "rates.json");
+  try {
+    const override = existsSync(f) ? (JSON.parse(readFileSync(f, "utf8")) as Record<string, number>) : {};
+    return { ...VALUE_PER_ACTION, ...override };
+  } catch {
+    return { ...VALUE_PER_ACTION };
   }
 }
 
@@ -366,7 +380,11 @@ const server = createServer((req, res) => {
           openaiSpendBySlug: usage.spend,
           boxMonthlyUsd: Number(process.env.BOX_MONTHLY_USD ?? 8),
         });
-        const act = aggregateActivity({ actions: activity, attributionWeight: attributionWeights() });
+        const act = aggregateActivity({
+          actions: activity,
+          valuePerAction: valuePerAction(),
+          attributionWeight: attributionWeights(),
+        });
         // Merge value-created + ROT (Return on Tokens = value per million tokens) into each client.
         const clients = data.clients.map((c) => {
           const valueCreated = act.valueBySlug[c.slug] ?? 0; // raw: human + agent together
@@ -427,6 +445,7 @@ const server = createServer((req, res) => {
         clientAccount?: string;
         agentName?: string;
         priceMonthly?: number;
+        profile?: string;
         capabilities?: string[];
         needsKit?: boolean;
       };
@@ -456,10 +475,12 @@ const server = createServer((req, res) => {
             : slugify(personName);
           const connect = stdout.match(/Onboarding link for .*?: (\S+)/);
           const price = Number(body.priceMonthly);
-          // DEFAULT-SKILLS floor: every minted agent ships with the operator's default skills,
-          // unioned with whatever the New-agent picker selected (defaults apply even if empty).
+          // AGENT-PROFILES build: every minted agent ships with the chosen profile's skills (a named
+          // "build"), or the default profile when none is chosen (the mint floor), unioned with any
+          // explicit capability ids the form passed. Profiles come from AGENT_PROFILES (operator-defined).
           const requested = Array.isArray(body.capabilities) ? body.capabilities.map(String) : [];
-          const capabilities = mergeDefaultSkills(requested, parseDefaultSkills(process.env.DEFAULT_SKILLS));
+          const profilesConfig = parseAgentProfiles(process.env.AGENT_PROFILES);
+          const capabilities = resolveMintSkills(profilesConfig, { profile: body.profile, extras: requested });
           await registry.record({
             slug,
             email,

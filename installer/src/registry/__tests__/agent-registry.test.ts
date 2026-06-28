@@ -19,7 +19,7 @@ const rec = {
   slug: "acme-agent",
   email: "founder@acme.com",
   agentName: "Acme's Agent",
-  capabilities: ["repurpose"],
+  capabilities: ["content-draft"],
   loginUrl: "https://acme-agent.example.com",
 };
 

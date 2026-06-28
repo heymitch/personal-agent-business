@@ -2,38 +2,20 @@ import type { ActivityRecord } from "./activity-log";
 
 /**
  * Default dollar value of ONE unit of work per capability: what that output would cost if a human
- * did it (the labor the agent replaces). Operator-tunable; this is the "value created" rate. These
- * are deliberately conservative ghostwriter/assistant rates.
+ * did it (the labor the agent replaces) -- the "value created" rate. EMPTY by default: the
+ * operator's skills/capabilities are their OWN (there is no built-in catalog to ship publicly), so
+ * the operator tunes per-capability rates via a rates file (the receiver merges rates.json over
+ * this). A capability with no rate and no explicit override is valued at 0.
  */
-export const VALUE_PER_ACTION: Record<string, number> = {
-  repurpose: 150,
-  "job-scan": 75,
-  "trend-jack": 120,
-  "kit-schedule": 100,
-  "ghost-scorecard": 200,
-  "sales-followup": 80,
-};
+export const VALUE_PER_ACTION: Record<string, number> = {};
 
 /**
- * Agent attribution weight per capability: the AGENT'S share of the value, vs the human's. This is
- * the honesty knob. A high-leverage human role (sales) generates revenue the AI cannot claim (it
- * can't make the calls), so it weights low; AI-heavy roles (organic content, success) weight high.
- * Tunable over time and by price point: marketing may out-leverage sales, etc. Override per box via
- * a weights file. Unknown capability defaults to full credit (1.0).
- *
- * Maps to the capability writer/coach/closer groups: writer high, coach mid, closer low.
+ * Agent attribution weight per capability: the AGENT'S share of the value, vs the human's. The
+ * honesty knob -- a high-leverage human role (sales) weights low; an AI-heavy role weights high.
+ * EMPTY by default (the operator's capability ids are their own); the operator tunes it via a
+ * weights file (the receiver merges weights.json over this). Unknown capability -> full credit (1.0).
  */
-export const ATTRIBUTION_WEIGHT: Record<string, number> = {
-  // writer (AI does the work)
-  repurpose: 0.8,
-  "job-scan": 0.7,
-  "trend-jack": 0.8,
-  "kit-schedule": 0.7,
-  // coach (AI monitors + scores, human acts)
-  "ghost-scorecard": 0.5,
-  // closer (human closes; AI supports)
-  "sales-followup": 0.15,
-};
+export const ATTRIBUTION_WEIGHT: Record<string, number> = {};
 
 export interface ActivityAggregate {
   /** Raw value: what the human + agent produced together (unweighted). */
