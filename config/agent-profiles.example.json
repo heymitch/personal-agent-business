@@ -1,0 +1,15 @@
+{
+  "profiles": [
+    {
+      "name": "Starter",
+      "skills": ["your-skill-id", "another-skill-id"],
+      "description": "The small default build every new client agent starts with. Replace these placeholder ids with your OWN skill ids (run scripts/agentize.sh --scan-skills to list the skills on your agent)."
+    },
+    {
+      "name": "Pro",
+      "skills": ["your-skill-id", "another-skill-id", "a-third-skill-id"],
+      "description": "A bigger build for higher-priced clients. Add or remove your own skill ids."
+    }
+  ],
+  "defaultProfile": "Starter"
+}

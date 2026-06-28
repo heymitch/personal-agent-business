@@ -22,6 +22,10 @@ installer/receiver/checkout-queue.jsonl
 # agentize skill-packaging staging dir (operator's packaged skill bundles)
 .agentize-staging/
 
+# operator's real agent profiles (their OWN skill ids). Ship only the neutral
+# config/agent-profiles.example.json; never the operator's filled-in copy.
+config/agent-profiles.json
+
 # bats temp -- ignore contents but keep the dir (tracked via .gitkeep)
 test/tmp/*
 !test/tmp/.gitkeep
