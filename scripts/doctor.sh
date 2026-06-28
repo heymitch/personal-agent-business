@@ -67,16 +67,40 @@ else
 fi
 
 # --- surfaces: the deployed Vercel surface URL(s) respond ------------------------
+# Resolve a hostname's A record via Cloudflare DoH (bypasses the LOCAL resolver cache).
+# A just-created hostname can still be NXDOMAIN in the local cache while Cloudflare/Vercel
+# already resolve it fine; this lets us tell that apart from a real outage.
+cf_doh_a() {
+  command -v jq >/dev/null 2>&1 || return 1
+  "$CURL" -fsS --max-time 10 -H 'accept: application/dns-json' \
+    "https://cloudflare-dns.com/dns-query?name=$1&type=A" 2>/dev/null \
+    | jq -r '[.Answer[]? | select(.type==1) | .data] | first // empty' 2>/dev/null || true
+}
+
 surface_ok=1
 checked=0
+cache_artifact=0
 for var in ONBOARDER_BASE_URL LANDING_URL CONSOLE_URL; do
   url="${!var:-}"
   [ -n "$url" ] || continue
   checked=$((checked + 1))
-  "$CURL" -fsS -o /dev/null --max-time 10 "$url" >/dev/null 2>&1 || surface_ok=0
+  "$CURL" -fsS -o /dev/null --max-time 10 "$url" >/dev/null 2>&1 && continue
+  # Direct curl failed. Re-check by BYPASSING the local DNS cache: resolve the host via
+  # Cloudflare and pin that IP with curl --resolve. If THAT responds, the only thing wrong
+  # was the local resolver still holding the pre-creation NXDOMAIN -- a local-cache artifact,
+  # not an outage (Vercel and clients resolve fresh).
+  host="${url#*://}"; host="${host%%/*}"
+  ip="$(cf_doh_a "$host")"
+  if [ -n "$ip" ] && "$CURL" -fsS -o /dev/null --max-time 10 --resolve "$host:443:$ip" "$url" >/dev/null 2>&1; then
+    cache_artifact=1
+    continue
+  fi
+  surface_ok=0
 done
 if [ "$checked" -eq 0 ]; then
   fail surfaces "no surface URL set (deploy your surfaces first)"
+elif [ "$surface_ok" -eq 1 ] && [ "$cache_artifact" -eq 1 ]; then
+  pass surfaces "all ${checked} deployed surface URL(s) responded (one or more only via a fresh --resolve; the local DNS cache lag is a local-only artifact, Vercel/clients resolve fresh)"
 elif [ "$surface_ok" -eq 1 ]; then
   pass surfaces "all ${checked} deployed surface URL(s) responded"
 else

@@ -47,3 +47,24 @@ healthy_env() {
   run "$SCRIPTS_DIR/doctor.sh"; [ "$status" -eq 0 ]; [[ "$output" == *"DOCTOR-OK"* ]]
   run "$SCRIPTS_DIR/doctor.sh"; [ "$status" -eq 0 ]; [[ "$output" == *"DOCTOR-OK"* ]]
 }
+
+# Fix 6: a just-created hostname can fail ONLY because the local resolver still holds the
+# pre-creation NXDOMAIN. doctor must re-check by bypassing the local cache (Cloudflare DoH
+# + curl --resolve) and, if that responds, report a local-cache artifact, NOT a failure.
+@test "doctor treats a local-cache-only DNS miss as an artifact, not a surface failure" {
+  make_fake_bin ssh   # box/engine probes succeed
+  # Custom curl: the local-resolver GET fails, Cloudflare DoH returns an IP, and the pinned
+  # --resolve re-check succeeds -> a local DNS cache lag, not an outage.
+  cat > "$FAKE_BIN/curl" <<'SH'
+#!/usr/bin/env bash
+args="$*"
+if printf '%s' "$args" | grep -q 'cloudflare-dns.com'; then echo '{"Answer":[{"type":1,"data":"104.21.0.1"}]}'; exit 0; fi
+if printf '%s' "$args" | grep -q -- '--resolve'; then exit 0; fi
+exit 6
+SH
+  chmod +x "$FAKE_BIN/curl"
+  healthy_env
+  run "$SCRIPTS_DIR/doctor.sh"
+  [[ "$output" == *"[PASS] surfaces"* ]]
+  [[ "$output" == *"local-only artifact"* ]]
+}
