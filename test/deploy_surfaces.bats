@@ -134,6 +134,36 @@ teardown() { teardown_fake_bin; }
   [[ "$output" == *"SURFACES-DEPLOYED"* ]]
 }
 
+# Fix 4 teeth: console env is set via the Vercel API and then READ BACK + verified. The
+# old `vercel env add --yes || true` failed silently; now the keys must be confirmed
+# present before the deploy is declared a success.
+@test "deploy_surfaces sets console env via the Vercel API and verifies the keys (CONSOLE-ENV-VERIFIED)" {
+  run "$SCRIPTS_DIR/deploy_surfaces.sh" --operational
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"CONSOLE-ENV-VERIFIED"* ]]
+  [[ "$output" == *"MINT_RECEIVER_URL"* ]]
+  [[ "$output" == *"MINT_SECRET"* ]]
+}
+
+# Fix 4 teeth (negative): if the read-back does NOT report a key the console needs, the
+# deploy ABORTS instead of shipping a console that fails closed. Mutation-proof: remove
+# the read-back assertion and this no longer aborts.
+@test "deploy_surfaces ABORTS when a console env key is missing on read-back (no swallow)" {
+  export VERCEL_ENV_KEYS="COMPOSIO_API_KEY MINT_RECEIVER_URL"   # MINT_SECRET intentionally absent
+  run "$SCRIPTS_DIR/deploy_surfaces.sh" --operational
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"missing keys"* ]]
+  [[ "$output" == *"MINT_SECRET"* ]]
+  [[ "$output" != *"SURFACES-DEPLOYED"* ]]
+  [[ "$output" != *"CONSOLE-ENV-VERIFIED"* ]]
+}
+
+# Fix 4 teeth: the invalid `vercel env add ... --yes` invocation is gone for good (the
+# doc comment may still describe it; only an actual `"$VERCEL" env add` command counts).
+@test "deploy_surfaces no longer uses the invalid 'vercel env add --yes' invocation" {
+  ! grep -qF '"$VERCEL" env add' "$SCRIPTS_DIR/deploy_surfaces.sh"
+}
+
 # Separation teeth: the landing page deploys on its own, independent of the
 # operational console+onboarding group, and needs no receiver URL.
 @test "deploy_surfaces --landing deploys the landing page alone (no receiver needed)" {

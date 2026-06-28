@@ -113,6 +113,63 @@ make_onboarding_public() {
   fi
 }
 
+# Link (create if needed) the project so .vercel/project.json exists BEFORE we set env.
+# `vercel link --yes` is non-interactive and never deploys. With a test override
+# (VERCEL_PROJECT_ID_OVERRIDE) the env plumbing runs without a real link.
+link_project() {
+  [ -n "${VERCEL_PROJECT_ID_OVERRIDE:-}" ] && return 0
+  ( cd "$1" && "$VERCEL" link --yes >/dev/null 2>&1 || true )
+}
+
+# Fix 4: set a project's PRODUCTION env reliably via the Vercel API, then READ THE KEYS
+# BACK and assert every expected key is present before we deploy. The old path used
+# `vercel env add ... --yes || true` (--yes is not a valid flag for `env add`), so every
+# add failed silently and the console middleware then failed CLOSED ("auth not configured").
+# Args: <project-dir> <LABEL> KEY1 [KEY2 ...]  (only keys that are actually SET get pushed).
+set_project_env() {
+  local dir="$1" label="$2"; shift 2
+  local proj tok team getq postq present k body
+  local want=() missing=()
+  proj="$(project_id_for "$dir")"
+  tok="$(vercel_cli_token || true)"
+  if [ -z "$proj" ] || [ -z "$tok" ]; then
+    echo "ERROR: cannot set $label env on Vercel: project not linked (.vercel/project.json) or" >&2
+    echo "       no Vercel CLI token (run 'vercel login'). Refusing to deploy with unset env." >&2
+    exit 1
+  fi
+  team="$(read_org_id "$dir")"
+  getq=""; postq="upsert=true"
+  if [ -n "$team" ]; then getq="?teamId=$team"; postq="upsert=true&teamId=$team"; fi
+  # 1. Upsert each requested var that is actually set. Body on stdin (--data @-) so the
+  #    secret value never lands on argv.
+  for k in "$@"; do
+    [ -n "${!k:-}" ] || continue
+    want+=("$k")
+    body="$(jq -n --arg key "$k" --arg val "${!k}" '{key:$key,value:$val,type:"encrypted",target:["production"]}')"
+    printf '%s' "$body" \
+      | "$CURL" -sS -X POST "$VERCEL_API/v10/projects/$proj/env?$postq" \
+          -H "Authorization: Bearer $tok" -H "Content-Type: application/json" \
+          --data @- >/dev/null 2>&1 || true
+  done
+  if [ "${#want[@]}" -eq 0 ]; then
+    echo "$label-ENV-VERIFIED keys=(none set)"
+    return 0
+  fi
+  # 2. Read the keys back and assert ALL expected keys are present. Do NOT swallow a miss:
+  #    an unset console env is exactly the silent failure this fix exists to stop.
+  present="$("$CURL" -sS "$VERCEL_API/v9/projects/$proj/env$getq" \
+              -H "Authorization: Bearer $tok" 2>/dev/null | jq -r '.envs[].key // empty' 2>/dev/null || true)"
+  for k in "${want[@]}"; do
+    printf '%s\n' "$present" | grep -qx "$k" || missing+=("$k")
+  done
+  if [ "${#missing[@]}" -gt 0 ]; then
+    echo "ERROR: $label env not verified on Vercel after setting; missing keys: ${missing[*]}." >&2
+    echo "       The deploy would run with unset env (middleware fails closed). Aborting." >&2
+    exit 1
+  fi
+  echo "$label-ENV-VERIFIED keys=$(IFS=,; printf '%s' "${want[*]}")"
+}
+
 # Resolve the selected surfaces. ORDER matters: onboarding first so its URL can seed
 # ONBOARDER_BASE_URL, then landing, then the operator console LAST (it proxies the
 # box receiver, which must already exist). Landing is deployed apart from the
@@ -152,7 +209,8 @@ if [ "$DRY_RUN" -eq 1 ]; then
     echo "== surface: $s =="
     echo "   cd $SURFACES_DIR/$s"
     if [ "$s" = "onboarding" ]; then
-      echo "   vercel env add COMPOSIO_API_KEY production"
+      echo "   vercel link --yes (so the project exists before env is set)"
+      echo "   set COMPOSIO_API_KEY in the onboarding project env via Vercel API (POST $VERCEL_API/v10/projects/<id>/env?upsert=true), then read the keys back and verify"
       echo "   disable Vercel Deployment Protection for onboarding (PATCH $VERCEL_API/v9/projects/<id> body {\"ssoProtection\":null}) so clients can open connect links (the operator dashboard keeps its own gate)"
     fi
     if [ "$s" = "operator-console" ]; then
@@ -160,13 +218,15 @@ if [ "$DRY_RUN" -eq 1 ]; then
         echo "   (console deploy BLOCKED on a real run: deploy the engine first, then set"
         echo "    MINT_RECEIVER_URL + MINT_SECRET so the console is never 'not configured')"
       fi
+      echo "   vercel link --yes (so the project exists before env is set)"
       for v in MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL DEFAULT_SKILLS; do
         if [ -n "${!v:-}" ]; then
-          echo "   vercel env add $v production = $(redact_len "${!v}")"
+          echo "   set $v in the console project env via Vercel API = $(redact_len "${!v}")"
         else
           echo "   (console env $v unset)"
         fi
       done
+      echo "   read the console project env keys back and ASSERT all expected keys are present (abort the deploy if any is missing)"
     fi
     echo "   vercel deploy --prod --yes"
   done
@@ -182,34 +242,30 @@ deploy_one() {
   local surface="$1" dir url
   dir="$SURFACES_DIR/$surface"
   [ -d "$dir" ] || { echo "ERROR: surface dir missing: $dir" >&2; exit 1; }
-  if [ "$surface" = "onboarding" ]; then
-    # The onboarding serverless api/ needs the Composio key at runtime. Set it
-    # into the project env (piped on stdin so it never lands on the command line).
-    printf '%s' "$COMPOSIO_API_KEY" | \
-      ( cd "$dir" && "$VERCEL" env add COMPOSIO_API_KEY production --yes >/dev/null 2>&1 || true )
-  fi
-  if [ "$surface" = "operator-console" ]; then
-    # The console is a thin Cloudflare-Access-gated proxy. Push the runtime env on
-    # stdin so a secret never lands on the command line. MINT_RECEIVER_URL is the box
-    # receiver URL and MINT_SECRET signs the proxy->receiver calls (both required,
-    # gated above). CF_ACCESS_AUTH_DOMAIN + CF_ACCESS_AUD + OWNER_EMAIL drive the
-    # Cloudflare Access email gate in middleware.js (from cf_console_gate.sh); pushed
-    # when set, and the middleware fails CLOSED if any is missing.
-    local v
-    for v in MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL DEFAULT_SKILLS; do
-      [ -n "${!v:-}" ] || continue
-      printf '%s' "${!v}" | \
-        ( cd "$dir" && "$VERCEL" env add "$v" production --yes >/dev/null 2>&1 || true )
-    done
-  fi
   url="$( cd "$dir" && "$VERCEL" deploy --prod --yes 2>/dev/null | tail -n1 || true )"
   [ -n "$url" ] || url="(deployed: see Vercel dashboard)"
   printf '%s' "$url"
 }
 
-# Deploy each selected surface and collect its URL for the success token.
+# Deploy each selected surface and collect its URL for the success token. Env is set +
+# VERIFIED BEFORE each deploy (so the build captures it); the onboarding api/ needs
+# COMPOSIO_API_KEY and the console needs its receiver-proxy + Cloudflare Access gate env.
 TOKEN="SURFACES-DEPLOYED"
 for s in $SURFACES; do
+  case "$s" in
+    onboarding)
+      link_project "$SURFACES_DIR/$s"
+      set_project_env "$SURFACES_DIR/$s" ONBOARDING COMPOSIO_API_KEY
+      ;;
+    operator-console)
+      # MINT_RECEIVER_URL/MINT_SECRET reach the box receiver; CF_ACCESS_* + OWNER_EMAIL
+      # drive the Cloudflare Access email gate in middleware.js (it fails closed if any is
+      # missing) -- which is exactly why the read-back assertion must confirm they landed.
+      link_project "$SURFACES_DIR/$s"
+      set_project_env "$SURFACES_DIR/$s" CONSOLE \
+        MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL DEFAULT_SKILLS
+      ;;
+  esac
   url="$(deploy_one "$s")"
   case "$s" in
     onboarding)       TOKEN="$TOKEN onboarding=$url"; make_onboarding_public;;
