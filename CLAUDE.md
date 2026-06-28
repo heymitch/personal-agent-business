@@ -59,11 +59,14 @@ one: the brain base URL + model, the Slack invite address; AgentMail is optional
 Vercel needs no token). Wait for the answer before asking the next question. Never
 ask for a key until the step that needs it.
 
-When the operator has built skills, ask which become DEFAULT_SKILLS: the skills
-EVERY newly minted client agent ships with by default. Wire the answer into
-`DEFAULT_SKILLS` (the New-agent picker pre-checks them, the mint applies them as a
-floor, and `agentize.sh --load-skills --defaults` ships exactly that set to a new
-agent).
+When the operator has built skills, help them define their AGENT PROFILES: named
+builds, each a NAME + a set of THEIR OWN skill ids (+ an optional description). Scan
+first (`agentize.sh --scan-skills`), then interview one question at a time: which
+scanned skills to include, and what builds to group them into (e.g. a "Starter" and a
+"Pro"). Pick a sensible default profile. Write them to `config/agent-profiles.json`
+(gitignored; copy the shape from `config/agent-profiles.example.json`). Profiles drive
+both the console New-agent form (pick a profile = a build) and `agentize.sh
+--load-skills --profile <name>` (or `--defaults` for the default profile).
 
 ---
 

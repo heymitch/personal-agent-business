@@ -18,10 +18,10 @@ SSH key path, is ever printed back.
 ```
 your Hermes agent                          a freshly minted client agent
 /home/hermes/.hermes/skills/   --scan-->   (none yet)
-   ghost-scorecard/            --package-> ghost-scorecard.tgz
-   fathom-followup/            --load----> /home/hermes/.hermes/skills/
-                                              ghost-scorecard/
-                                              fathom-followup/
+   <your-skill-a>/             --package-> <your-skill-a>.tgz
+   <your-skill-b>/             --load----> /home/hermes/.hermes/skills/
+                                              <your-skill-a>/
+                                              <your-skill-b>/
 ```
 
 The client agent's skills directory is the SAME path your own agent uses
@@ -59,19 +59,41 @@ back. Do not invent skills for them.
 
 ---
 
-## Step 1b: choose your DEFAULT skills (the mint floor)
+## Step 1b: define your AGENT PROFILES (the named builds you sell)
 
-Ask the operator, one question at a time: "Of these skills, which should EVERY new
-client agent ship with by default?" Their answer is `DEFAULT_SKILLS` (comma-separated
-capability ids in `.env`). It does three things automatically:
+A profile is a NAME + a set of YOUR skill ids (+ an optional description). It is the
+"build" the operator picks when minting a client agent. Profiles are operator-defined
+(there is no fixed catalog); they live in `config/agent-profiles.json` (gitignored;
+copy the shape from `config/agent-profiles.example.json`).
 
-- the console New-agent picker PRE-CHECKS those capabilities,
-- the mint applies them as a FLOOR (a new agent gets them even if the picker is empty),
-- `scripts/agentize.sh --load-skills --target <new agent> --defaults` ships exactly
-  that default set onto a freshly minted agent.
+Interview the operator ONE question at a time off the scanned list:
 
-Set it via the key form (or `.env`). Per-client extras are still picked at mint time;
-this is just the default every client starts with.
+1. "Of the skills I just found, which do you actually want to ship to clients?"
+   (confirm the include set; do not assume all of them).
+2. "Let's group them into builds. What is your default build, and which of those
+   skills does it include?" (name it, e.g. "Starter").
+3. "Any other builds you sell to different clients?" (e.g. a bigger "Pro"). Repeat
+   until they are done. Pick a sensible `defaultProfile` (usually the first/smallest).
+
+Write the answers to `config/agent-profiles.json` in this shape:
+
+```json
+{
+  "profiles": [
+    { "name": "Starter", "skills": ["<skill-id>", "..."], "description": "..." },
+    { "name": "Pro", "skills": ["<skill-id>", "..."] }
+  ],
+  "defaultProfile": "Starter"
+}
+```
+
+Those profiles do three things automatically:
+
+- the console New-agent form RENDERS them (pick a profile = a build),
+- the mint records the chosen profile's skills (the default profile is the FLOOR when
+  no profile is chosen),
+- `scripts/agentize.sh --load-skills --target <new agent> --profile <name>` (or
+  `--defaults` for the default profile) ships exactly that build onto a fresh agent.
 
 ---
 

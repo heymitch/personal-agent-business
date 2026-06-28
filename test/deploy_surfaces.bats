@@ -51,7 +51,7 @@ setup() {
   # Vercel-API plumbing (fix 2 + fix 4): a project id so the API calls have a target
   # without a real `vercel link`, and the full set of keys the env read-back reports.
   export VERCEL_PROJECT_ID_OVERRIDE="prj_test"
-  export VERCEL_ENV_KEYS="COMPOSIO_API_KEY MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL DEFAULT_SKILLS"
+  export VERCEL_ENV_KEYS="COMPOSIO_API_KEY MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL AGENT_PROFILES"
 }
 teardown() { teardown_fake_bin; }
 

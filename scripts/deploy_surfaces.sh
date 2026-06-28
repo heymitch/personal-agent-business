@@ -50,6 +50,16 @@ esac; done
 
 VERCEL="${VERCEL:-vercel}"
 CURL="${CURL:-curl}"
+
+# AGENT_PROFILES carries the operator's agent profiles (named builds) into the console's
+# Vercel env so the New-agent form can render them. It is the JSON of config/agent-profiles.json
+# (the operator's source of truth, gitignored). Populate it from that file when present and not
+# already set; absent, it stays unset and is simply not pushed (the form shows "no profiles yet").
+PROFILES_JSON_FILE="${AGENT_PROFILES_FILE:-$HERE/../config/agent-profiles.json}"
+if [ -z "${AGENT_PROFILES:-}" ] && [ -f "$PROFILES_JSON_FILE" ]; then
+  AGENT_PROFILES="$(jq -c . "$PROFILES_JSON_FILE" 2>/dev/null || true)"
+  export AGENT_PROFILES
+fi
 # Vercel auth is the LOGGED-IN `vercel login` session: that is the only thing the
 # operator sets up, and the `vercel` CLI deploys with it directly (no --token flag).
 # The few direct Vercel API calls we make (disable Deployment Protection on the public
@@ -219,7 +229,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
         echo "    MINT_RECEIVER_URL + MINT_SECRET so the console is never 'not configured')"
       fi
       echo "   vercel link --yes (so the project exists before env is set)"
-      for v in MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL DEFAULT_SKILLS; do
+      for v in MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL AGENT_PROFILES; do
         if [ -n "${!v:-}" ]; then
           echo "   set $v in the console project env via Vercel API = $(redact_len "${!v}")"
         else
@@ -263,7 +273,7 @@ for s in $SURFACES; do
       # missing) -- which is exactly why the read-back assertion must confirm they landed.
       link_project "$SURFACES_DIR/$s"
       set_project_env "$SURFACES_DIR/$s" CONSOLE \
-        MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL DEFAULT_SKILLS
+        MINT_RECEIVER_URL MINT_SECRET CF_ACCESS_AUTH_DOMAIN CF_ACCESS_AUD OWNER_EMAIL AGENT_PROFILES
       ;;
   esac
   url="$(deploy_one "$s")"

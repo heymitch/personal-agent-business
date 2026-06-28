@@ -19,13 +19,15 @@ instead (each skill is a folder containing a `SKILL.md`).
 
 The narrated operator flow is `.claude/commands/agentize-skills.md`.
 
-## Default skills (the mint floor)
+## Agent profiles (the named builds you sell)
 
-Set `DEFAULT_SKILLS` in `.env` (comma-separated capability ids) to the skills EVERY
-newly minted client agent should ship with by default. The console New-agent picker
-pre-checks them, the mint applies them as a floor, and
-`scripts/agentize.sh --load-skills --target <agent> --defaults` ships exactly that
-default set onto a freshly minted agent.
+Group your skills into named PROFILES in `config/agent-profiles.json` (gitignored;
+copy `config/agent-profiles.example.json` to start). A profile is a NAME + a set of
+your own skill ids + an optional description, e.g. a small "Starter" and a bigger
+"Pro". The console New-agent form renders them (pick a profile = a build), the mint
+records the chosen profile's skills (the `defaultProfile` is the floor when none is
+chosen), and `scripts/agentize.sh --load-skills --target <agent> --profile <name>`
+(or `--defaults` for the default profile) ships exactly that build onto a fresh agent.
 
 This folder is a staging/reference location. Drop a skill folder here (one
 folder per skill, each with a `SKILL.md`) and `--scan-skills --source operator-skills`
