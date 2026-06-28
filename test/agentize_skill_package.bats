@@ -8,9 +8,11 @@
 #   - a LOCAL skills dir (AGENTIZE_SKILLS_DIR), OR
 #   - the operator's OWN box at /home/hermes/.hermes/skills over SSH (default,
 #     via AGENT_IP + SSH_KEY).
+# Restriction is by AGENT PROFILE (a named build = the operator's own skill ids):
+#   --profile <name> restricts to that profile; --defaults to the defaultProfile.
 # Every ssh/scp/rsync/tar is PATH-shimmed so no test touches a real box, network,
 # or spends anything. Tokens are mutation-proven: drop the logic, the token goes,
-# the test fails.
+# the test fails. Fixture skill ids are NEUTRAL placeholders, not anyone's catalog.
 
 load "test_helper.bash"
 
@@ -22,11 +24,20 @@ setup() {
   # (The default scan source is the operator's OWN box; pointing at a local dir
   #  lets the test discover real folders without an ssh round-trip.)
   export AGENTIZE_SKILLS_DIR="${BATS_TEST_TMPDIR}/local-skills"
-  mkdir -p "$AGENTIZE_SKILLS_DIR/ghost-scorecard" "$AGENTIZE_SKILLS_DIR/fathom-followup"
-  printf '# ghost-scorecard\n' > "$AGENTIZE_SKILLS_DIR/ghost-scorecard/SKILL.md"
-  printf '# fathom-followup\n' > "$AGENTIZE_SKILLS_DIR/fathom-followup/SKILL.md"
+  mkdir -p "$AGENTIZE_SKILLS_DIR/weekly-digest" "$AGENTIZE_SKILLS_DIR/inbox-triage"
+  printf '# weekly-digest\n' > "$AGENTIZE_SKILLS_DIR/weekly-digest/SKILL.md"
+  printf '# inbox-triage\n' > "$AGENTIZE_SKILLS_DIR/inbox-triage/SKILL.md"
   # Staging dir for packaged bundles (kept inside the test tmp).
   export AGENTIZE_STAGING_DIR="${BATS_TEST_TMPDIR}/staging"
+  # The operator's agent profiles (named builds). Starter = the default = one skill;
+  # Pro = both. This is the operator-defined config the --profile/--defaults flags read.
+  export AGENT_PROFILES_FILE="${BATS_TEST_TMPDIR}/agent-profiles.json"
+  cat > "$AGENT_PROFILES_FILE" <<'JSON'
+{ "profiles": [
+    { "name": "Starter", "skills": ["weekly-digest"], "description": "small build" },
+    { "name": "Pro", "skills": ["weekly-digest", "inbox-triage"] } ],
+  "defaultProfile": "Starter" }
+JSON
 }
 
 teardown() { teardown_fake_bin; }
@@ -36,8 +47,8 @@ teardown() { teardown_fake_bin; }
 @test "agentize --scan-skills (local source) lists the operator's built skill dirs + emits SKILLS-SCANNED count=2" {
   run "$SCRIPTS_DIR/agentize.sh" --scan-skills --source "$AGENTIZE_SKILLS_DIR"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"ghost-scorecard"* ]]
-  [[ "$output" == *"fathom-followup"* ]]
+  [[ "$output" == *"weekly-digest"* ]]
+  [[ "$output" == *"inbox-triage"* ]]
   [[ "$output" == *"SKILLS-SCANNED count=2"* ]]
 }
 
@@ -62,8 +73,8 @@ teardown() { teardown_fake_bin; }
 @test "agentize --package-skills tars each scanned skill into the staging dir + emits SKILLS-PACKAGED count=2" {
   run "$SCRIPTS_DIR/agentize.sh" --package-skills --source "$AGENTIZE_SKILLS_DIR"
   [ "$status" -eq 0 ]
-  [[ "$output" == *"ghost-scorecard"* ]]
-  [[ "$output" == *"fathom-followup"* ]]
+  [[ "$output" == *"weekly-digest"* ]]
+  [[ "$output" == *"inbox-triage"* ]]
   [[ "$output" == *"SKILLS-PACKAGED count=2"* ]]
 }
 
@@ -72,7 +83,7 @@ teardown() { teardown_fake_bin; }
   [ "$status" -eq 0 ]
   [[ "$output" == *"SKILLS-PACKAGED count=2"* ]]
   # dry-run must not create the staging dir contents
-  [ ! -e "$AGENTIZE_STAGING_DIR/ghost-scorecard.tgz" ]
+  [ ! -e "$AGENTIZE_STAGING_DIR/weekly-digest.tgz" ]
 }
 
 @test "agentize --package-skills does NOT transform skill contents (tar -c, no edits)" {
@@ -100,22 +111,44 @@ teardown() { teardown_fake_bin; }
   [[ "$output" == *"SKILLS-LOADED count=2"* ]]
 }
 
-# ---- default skills (the mint floor for every new client agent) ---------------
+# ---- agent profiles (named builds; the restriction the New-agent form sells) ---
 
-@test "agentize --defaults restricts the load to DEFAULT_SKILLS only" {
-  export DEFAULT_SKILLS="ghost-scorecard"
-  run "$SCRIPTS_DIR/agentize.sh" --load-skills --target 198.51.100.7 --source "$AGENTIZE_SKILLS_DIR" --defaults --dry-run
+@test "agentize --profile <name> restricts the load to exactly that profile's skill set" {
+  run "$SCRIPTS_DIR/agentize.sh" --load-skills --target 198.51.100.7 --source "$AGENTIZE_SKILLS_DIR" --profile Starter --dry-run
   [ "$status" -eq 0 ]
-  [[ "$output" == *"ghost-scorecard"* ]]
-  [[ "$output" != *"fathom-followup"* ]]
+  [[ "$output" == *"profile: Starter"* ]]
+  [[ "$output" == *"weekly-digest"* ]]
+  [[ "$output" != *"inbox-triage"* ]]
   [[ "$output" == *"SKILLS-LOADED count=1"* ]]
 }
 
-@test "agentize without --defaults ships ALL discovered skills (defaults is opt-in)" {
-  export DEFAULT_SKILLS="ghost-scorecard"
+@test "agentize --profile Pro selects the full profile skill set" {
+  run "$SCRIPTS_DIR/agentize.sh" --load-skills --target 198.51.100.7 --source "$AGENTIZE_SKILLS_DIR" --profile Pro --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"weekly-digest"* ]]
+  [[ "$output" == *"inbox-triage"* ]]
+  [[ "$output" == *"SKILLS-LOADED count=2"* ]]
+}
+
+@test "agentize --defaults maps to the defaultProfile's skill set (the mint floor)" {
+  run "$SCRIPTS_DIR/agentize.sh" --load-skills --target 198.51.100.7 --source "$AGENTIZE_SKILLS_DIR" --defaults --dry-run
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"defaultProfile"* ]]
+  [[ "$output" == *"weekly-digest"* ]]
+  [[ "$output" != *"inbox-triage"* ]]
+  [[ "$output" == *"SKILLS-LOADED count=1"* ]]
+}
+
+@test "agentize without a profile ships ALL discovered skills (profile is opt-in)" {
   run "$SCRIPTS_DIR/agentize.sh" --scan-skills --source "$AGENTIZE_SKILLS_DIR"
   [ "$status" -eq 0 ]
   [[ "$output" == *"SKILLS-SCANNED count=2"* ]]
+}
+
+@test "agentize rejects --profile and --defaults together" {
+  run "$SCRIPTS_DIR/agentize.sh" --scan-skills --source "$AGENTIZE_SKILLS_DIR" --profile Pro --defaults
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"--profile"* || "$output" == *"usage"* ]]
 }
 
 @test "agentize --load-skills requires a --target client agent" {

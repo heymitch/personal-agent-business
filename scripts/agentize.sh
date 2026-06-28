@@ -20,15 +20,18 @@
 # --dry-run on every stage: print the plan, touch nothing, spend nothing, and
 # NEVER print a secret value (the SSH key path is referenced as a redacted flag).
 #
-# --defaults restricts any stage to DEFAULT_SKILLS (comma-separated capability ids
-# in .env): the skills EVERY newly minted client agent ships with by default. Use it
-# with --load-skills to ship exactly your defaults onto a freshly minted agent.
+# AGENT PROFILES restrict any stage to one named build the operator defined. A profile
+# is a NAME + a set of the operator's own skill ids, stored in config/agent-profiles.json
+# (gitignored; config/agent-profiles.example.json is the neutral template). Two flags:
+#   --profile <name>  restrict to exactly that profile's skill set.
+#   --defaults        restrict to the defaultProfile's skill set (the mint floor).
+# Use either with --load-skills to ship exactly that build onto a freshly minted agent.
 #
 # Usage:
-#   agentize.sh --scan-skills    [--source <dir>] [--defaults] [--dry-run]
-#   agentize.sh --package-skills [--source <dir>] [--staging <dir>] [--defaults] [--dry-run]
+#   agentize.sh --scan-skills    [--source <dir>] [--profile <name>|--defaults] [--dry-run]
+#   agentize.sh --package-skills [--source <dir>] [--staging <dir>] [--profile <name>|--defaults] [--dry-run]
 #   agentize.sh --load-skills --target <client_ip_or_host> [--staging <dir>]
-#                                [--source <dir>] [--defaults] [--dry-run]
+#                                [--source <dir>] [--profile <name>|--defaults] [--dry-run]
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=lib/env.sh
@@ -52,16 +55,19 @@ TARGET=""
 STAGING="${AGENTIZE_STAGING_DIR:-$HERE/../.agentize-staging}"
 DRY_RUN=0
 DEFAULTS_ONLY=0
+PROFILE=""
+# Operator's agent profiles (named builds). Overridable for tests via AGENT_PROFILES_FILE.
+PROFILES_FILE="${AGENT_PROFILES_FILE:-$HERE/../config/agent-profiles.json}"
 
 usage() {
   cat >&2 <<'EOF'
 usage:
-  agentize.sh --scan-skills    [--source <dir>] [--defaults] [--dry-run]
-  agentize.sh --package-skills [--source <dir>] [--staging <dir>] [--defaults] [--dry-run]
-  agentize.sh --load-skills --target <client_ip_or_host> [--staging <dir>] [--source <dir>] [--defaults] [--dry-run]
+  agentize.sh --scan-skills    [--source <dir>] [--profile <name>|--defaults] [--dry-run]
+  agentize.sh --package-skills [--source <dir>] [--staging <dir>] [--profile <name>|--defaults] [--dry-run]
+  agentize.sh --load-skills --target <client_ip_or_host> [--staging <dir>] [--source <dir>] [--profile <name>|--defaults] [--dry-run]
 
-  --defaults  restrict to your DEFAULT_SKILLS (comma-separated capability ids in .env):
-              the skills EVERY newly minted client agent ships with by default.
+  --profile <name>  restrict to that named agent profile's skill set (config/agent-profiles.json).
+  --defaults        restrict to the defaultProfile's skill set (the mint floor every new agent gets).
 EOF
 }
 
@@ -72,6 +78,7 @@ while [ $# -gt 0 ]; do case "$1" in
   --source)         SOURCE="${2:-}"; shift 2;;
   --target)         TARGET="${2:-}"; shift 2;;
   --staging)        STAGING="${2:-}"; shift 2;;
+  --profile)        PROFILE="${2:-}"; shift 2;;
   --defaults)       DEFAULTS_ONLY=1; shift;;
   --dry-run)        DRY_RUN=1; shift;;
   -h|--help)        usage; exit 0;;
@@ -79,6 +86,7 @@ while [ $# -gt 0 ]; do case "$1" in
 esac; done
 
 [ -n "$MODE" ] || { echo "ERROR: pick one of --scan-skills / --package-skills / --load-skills" >&2; usage; exit 2; }
+[ -n "$PROFILE" ] && [ "$DEFAULTS_ONLY" -eq 1 ] && { echo "ERROR: pass --profile <name> OR --defaults, not both" >&2; usage; exit 2; }
 
 # scan_local <dir> : print each skill folder name (a dir holding a SKILL.md) on
 # its own line; print nothing if the dir is empty/missing. Deterministic order.
@@ -120,21 +128,45 @@ discover_names() {
   fi
 }
 
-# filter_defaults : pass through only the skill names in DEFAULT_SKILLS (the operator's chosen
-# mint-default subset, comma-separated capability ids in .env). Used when --defaults is set.
-filter_defaults() {
+# resolve_profile_name : the profile to restrict to. With --profile <name> it is that name; with
+# --defaults it is the config's defaultProfile (falling back to the first profile). Empty otherwise.
+resolve_profile_name() {
+  if [ -n "$PROFILE" ]; then
+    printf '%s' "$PROFILE"
+    return 0
+  fi
+  if [ "$DEFAULTS_ONLY" -eq 1 ]; then
+    [ -f "$PROFILES_FILE" ] || return 0
+    local name
+    name="$(jq -r '.defaultProfile // empty' "$PROFILES_FILE" 2>/dev/null || true)"
+    [ -n "$name" ] || name="$(jq -r '.profiles[0].name // empty' "$PROFILES_FILE" 2>/dev/null || true)"
+    printf '%s' "$name"
+  fi
+}
+
+# profile_skill_ids <name> : the skill ids of the named profile (one per line) from the profiles
+# config. Empty if no name, no config file, or the profile is unknown.
+profile_skill_ids() {
+  local name="$1"
+  [ -n "$name" ] || return 0
+  [ -f "$PROFILES_FILE" ] || return 0
+  jq -r --arg n "$name" '.profiles[] | select(.name==$n) | .skills[]?' "$PROFILES_FILE" 2>/dev/null || true
+}
+
+# filter_to_profile : pass through only the skill names in the active profile's skill set.
+filter_to_profile() {
   local allow line
-  allow=" $(printf '%s' "${DEFAULT_SKILLS:-}" | tr ',' ' ') "
+  allow=" $(profile_skill_ids "$(resolve_profile_name)" | tr '\n' ' ') "
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     case "$allow" in *" $line "*) echo "$line";; esac
   done
 }
 
-# discover_names_filtered : discover, then (when --defaults) keep only DEFAULT_SKILLS.
+# discover_names_filtered : discover, then (when --profile/--defaults) keep only that profile's set.
 discover_names_filtered() {
-  if [ "$DEFAULTS_ONLY" -eq 1 ]; then
-    discover_names | filter_defaults
+  if [ -n "$PROFILE" ] || [ "$DEFAULTS_ONLY" -eq 1 ]; then
+    discover_names | filter_to_profile
   else
     discover_names
   fi
@@ -147,10 +179,22 @@ source_desc() {
   fi
 }
 
+# profile_plan_note : when restricting to a profile, name it for the operator (no token, no secret).
+profile_plan_note() {
+  local name
+  name="$(resolve_profile_name)"
+  if [ -n "$PROFILE" ]; then
+    echo "profile: $name"
+  elif [ "$DEFAULTS_ONLY" -eq 1 ]; then
+    echo "profile: ${name:-<none>} (defaultProfile)"
+  fi
+}
+
 case "$MODE" in
   scan)
     desc="$(source_desc)"
     echo "scan source: $desc"
+    profile_plan_note
     read_names_into NAMES discover_names_filtered
     n="${#NAMES[@]}"
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -165,6 +209,7 @@ case "$MODE" in
   package)
     desc="$(source_desc)"
     echo "package source: $desc -> staging: $STAGING"
+    profile_plan_note
     read_names_into NAMES discover_names_filtered
     n="${#NAMES[@]}"
     if [ "$DRY_RUN" -eq 1 ]; then
@@ -191,6 +236,7 @@ case "$MODE" in
   load)
     [ -n "$TARGET" ] || { echo "ERROR: --load-skills requires --target <client_ip_or_host>" >&2; usage; exit 2; }
     desc="$(source_desc)"
+    profile_plan_note
     read_names_into NAMES discover_names_filtered
     n="${#NAMES[@]}"
     echo "load source: $desc"
