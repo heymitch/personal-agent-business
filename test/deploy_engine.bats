@@ -61,3 +61,31 @@ teardown() { teardown_fake_bin; }
   [ "$status" -eq 0 ]
   [[ "$output" == *"RECEIVER-URL="* ]]
 }
+
+# Live-deploy hardening fix 1: the box installs with `npm ci --omit=dev` and then
+# starts the receiver via `tsx receiver/server.ts`. If tsx is a devDependency it is
+# absent under --omit=dev and the receiver crashes on start. tsx MUST be a runtime
+# dependency so it survives the prod-only install on the box.
+@test "engine package.json ships tsx as a RUNTIME dependency (survives npm ci --omit=dev)" {
+  run node -e '
+    const p = require(process.argv[1]);
+    if (!(p.dependencies && p.dependencies.tsx)) { console.error("tsx not in dependencies"); process.exit(1); }
+    if (p.devDependencies && p.devDependencies.tsx) { console.error("tsx still in devDependencies"); process.exit(1); }
+    console.log("tsx-runtime-ok");
+  ' "$REPO_ROOT/installer/package.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"tsx-runtime-ok"* ]]
+}
+
+@test "engine lockfile resolves tsx as a production (non-dev) package" {
+  run node -e '
+    const l = require(process.argv[1]);
+    const root = l.packages[""];
+    const node = l.packages["node_modules/tsx"];
+    if (!(root.dependencies && root.dependencies.tsx)) { console.error("tsx not a root dependency in lockfile"); process.exit(1); }
+    if (node && node.dev === true) { console.error("tsx node is dev-flagged"); process.exit(1); }
+    console.log("tsx-lock-ok");
+  ' "$REPO_ROOT/installer/package-lock.json"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"tsx-lock-ok"* ]]
+}
