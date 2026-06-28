@@ -93,6 +93,13 @@
   .grp{color:var(--ink-2);font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin:12px 0 2px;}
   .cap{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:2px;padding:10px 12px;cursor:pointer;}
   .cap:hover{border-color:var(--acid-dim);} .cap input{accent-color:var(--acid);width:16px;height:16px;} .cap .id{color:var(--ink-2);font-size:12px;margin-left:auto;}
+  .prof{display:flex;align-items:flex-start;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:2px;padding:11px 13px;cursor:pointer;}
+  .prof:hover{border-color:var(--acid-dim);} .prof input{accent-color:var(--acid);width:16px;height:16px;margin-top:2px;}
+  .prof.on{border-color:var(--acid-dim);background:#161a0c;}
+  .prof .pb{flex:1;min-width:0;} .prof .pn{font-weight:600;letter-spacing:-.01em;} .prof .pd{color:var(--ink-2);font-size:12px;margin-top:3px;line-height:1.4;}
+  .prof .pchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+  .prof .pchips .chip{font-size:11px;background:#1b1d15;border:1px solid var(--line);border-radius:2px;padding:2px 7px;color:var(--ink-2);}
+  .noprof{border:1px dashed var(--line);border-radius:2px;padding:16px;color:var(--ink-2);font-size:13px;line-height:1.5;}
   .go{margin-top:24px;width:100%;background:var(--acid);color:#11130a;border:0;border-radius:2px;padding:14px;font:inherit;font-weight:700;cursor:pointer;}
   .go:disabled{opacity:.5;}
   .out{margin-top:16px;padding:14px;border-radius:2px;border:1px solid var(--line);background:var(--card);font-size:13px;display:none;}
@@ -162,7 +169,8 @@
     <section class="panel" id="p-mint">
       <h1>New agent</h1>
       <p class="sub">Close a client, then mint their agent here. Person name + email are required;
-        the client account is optional naming. Pick capabilities and a monthly price; we build it.</p>
+        the client account is optional naming. Pick a build (one of your agent profiles) and a monthly
+        price; we build it.</p>
       <form class="form" id="f" autocomplete="off">
         <label for="personName">Person name</label>
         <input id="personName" type="text" placeholder="e.g. Sam" autocomplete="off" required />
@@ -173,8 +181,8 @@
         <datalist id="accountList"></datalist>
         <label for="price">Monthly price (USD, what you charge them)</label>
         <input id="price" type="number" min="0" step="1" placeholder="500" autocomplete="off" />
-        <label>Capabilities</label>
-        <div class="caps" id="caps"></div>
+        <label>Build (agent profile)</label>
+        <div class="caps" id="profiles"></div>
         <label class="cf-show"><input type="checkbox" id="needsKit"> Needs Kit API (gives the client a private &quot;connect your Kit&quot; page in their build email)</label>
         <button class="go" id="go" type="submit">Build agent</button>
       </form>
@@ -191,14 +199,10 @@
 
 <script>
   const REPO_PATH = "~/personal-agent-business";
-  const CAPS = [
-    { id:"repurpose", label:"Repurpose my content", group:"writer" },
-    { id:"job-scan", label:"Weekly job scan", group:"writer" },
-    { id:"trend-jack", label:"Daily trend-jacking", group:"writer" },
-    { id:"kit-schedule", label:"Schedule my emails (Kit)", group:"writer" },
-    { id:"ghost-scorecard", label:"Ghostwriter scorecard", group:"coach" },
-    { id:"sales-followup", label:"Post-call follow-up + insight", group:"closer" },
-  ];
+  // The New-agent form renders the operator's OWN agent PROFILES (named builds), fetched live from
+  // /api/config. There is NO hardcoded skill catalog here; profiles are defined by the operator in
+  // setup and stored in config/agent-profiles.json.
+  let PROFILES = [], DEFAULT_PROFILE = null;
   const $=s=>document.querySelector(s);
   const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   const money=n=>"$"+(Math.round((Number(n)||0)*100)/100).toLocaleString();
@@ -376,36 +380,51 @@
   }
 
   // MINT
-  const capsEl=$('#caps'); let lg='';
-  for(const c of CAPS){ if(c.group!==lg){const g=document.createElement('div');g.className='grp';g.textContent=c.group;capsEl.appendChild(g);lg=c.group;}
-    const row=document.createElement('label');row.className='cap';
-    row.innerHTML=`<input type="checkbox" value="${c.id}"><span>${c.label}</span><span class="id">${c.id}</span>`;capsEl.appendChild(row); }
-  // Pre-check the operator's DEFAULT_SKILLS: the skills every new client agent ships with by default.
-  // The receiver applies them as a floor at mint time regardless; this just shows them pre-selected.
-  fetch('/api/config').then(r=>r.ok?r.json():{defaultSkills:[]}).then(cfg=>{
-    const def=new Set(cfg.defaultSkills||[]);
-    document.querySelectorAll('.cap').forEach(row=>{
-      const inp=row.querySelector('input');
-      if(inp&&def.has(inp.value)){ inp.checked=true; const t=document.createElement('span'); t.className='id'; t.textContent='default'; t.style.color='var(--acid)'; row.appendChild(t); }
+  const profEl=$('#profiles');
+  function selectedProfile(){ const r=profEl.querySelector('input[name="profile"]:checked'); return r?r.value:''; }
+  function renderProfiles(){
+    profEl.innerHTML='';
+    if(!PROFILES.length){
+      profEl.innerHTML='<div class="noprof">No agent profiles yet. Define your builds in setup (run <b>/setup</b> and pick which of your skills each build ships with). Once you have at least one profile it shows up here as a pickable build.</div>';
+      return;
+    }
+    PROFILES.forEach((p,i)=>{
+      const checked=(p.name===DEFAULT_PROFILE)||(DEFAULT_PROFILE==null&&i===0);
+      const row=document.createElement('label'); row.className='prof'+(checked?' on':'');
+      const chips=(p.skills||[]).map(s=>`<span class="chip">${esc(s)}</span>`).join('')||'<span class="chip">no skills yet</span>';
+      row.innerHTML=`<input type="radio" name="profile" value="${esc(p.name)}"${checked?' checked':''}>
+        <div class="pb"><div class="pn">${esc(p.name)}</div>${p.description?`<div class="pd">${esc(p.description)}</div>`:''}<div class="pchips">${chips}</div></div>`;
+      profEl.appendChild(row);
     });
-  }).catch(()=>{});
+    profEl.querySelectorAll('input[name="profile"]').forEach(inp=>inp.addEventListener('change',()=>{
+      profEl.querySelectorAll('.prof').forEach(r=>r.classList.toggle('on',r.querySelector('input').checked));
+    }));
+  }
+  // Load the operator's profiles (named builds). NO hardcoded catalog: the form renders exactly the
+  // profiles the operator defined in setup. An empty or failed config shows the "define them" state.
+  fetch('/api/config').then(r=>r.ok?r.json():{profiles:[],defaultProfile:null}).then(cfg=>{
+    PROFILES=Array.isArray(cfg.profiles)?cfg.profiles:[]; DEFAULT_PROFILE=cfg.defaultProfile||null; renderProfiles();
+  }).catch(()=>{ PROFILES=[]; DEFAULT_PROFILE=null; renderProfiles(); });
   function showOut(cls,msg){ const o=$('#out'); o.className='out show '+cls; o.textContent=msg; }
   $('#f').addEventListener('submit',async e=>{
     e.preventDefault();
     const personName=$('#personName').value.trim(), email=$('#email').value.trim();
     const clientAccount=$('#clientAccount').value.trim();
     const priceMonthly=Number($('#price').value)||0;
-    const capabilities=[...document.querySelectorAll('.cap input:checked')].map(i=>i.value);
+    const profile=selectedProfile();
+    const chosen=PROFILES.find(p=>p.name===profile);
+    const capabilities=chosen?(chosen.skills||[]).slice():[];
     const needsKit=$('#needsKit').checked;
     if(!personName||!email){showOut('err','Person name and client email are required.');return;}
+    if(PROFILES.length&&!profile){showOut('err','Pick a build (agent profile) for this client.');return;}
     $('#go').disabled=true; showOut('ok','Building '+personName+"'s agent...");
     try{
-      const r=await fetch('/api/mint',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({personName,email,clientAccount,priceMonthly,capabilities,needsKit})});
+      const r=await fetch('/api/mint',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({personName,email,clientAccount,priceMonthly,profile,capabilities,needsKit})});
       const data=await r.json();
       if(!r.ok){showOut('err',data.error||('build failed ('+r.status+')'));$('#go').disabled=false;return;}
       const link=data.connectUrl?(' Send them this connect link: '+data.connectUrl):'';
       showOut('ok','Build started for '+(data.agentName||personName)+' at '+money(priceMonthly)+'/mo. Client gets a build email now; login + connect in ~10 min.'+link);
-      $('#f').reset(); document.querySelectorAll('.cap input:checked').forEach(i=>i.checked=false);
+      $('#f').reset(); renderProfiles();
     }catch(err){showOut('err','Network error reaching the build endpoint.');}
     finally{$('#go').disabled=false;}
   });

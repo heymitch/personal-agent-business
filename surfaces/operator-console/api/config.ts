@@ -1,16 +1,18 @@
 /**
- * GET /api/config -> non-secret console config for the New-agent picker. Returns the operator's
- * DEFAULT_SKILLS: the capability ids EVERY newly minted client agent ships with by default. Read
- * from the console's own Vercel env (set by deploy_surfaces.sh); no box round-trip, no secret. The
- * picker pre-checks these, and the receiver applies them as a floor at mint time.
+ * GET /api/config -> non-secret console config for the New-agent form. Returns the operator's AGENT
+ * PROFILES (named builds: a NAME + the operator's own skill ids + an optional description) and the
+ * default profile. Read from the console's own Vercel env (AGENT_PROFILES, a JSON string set by
+ * deploy_surfaces.sh from config/agent-profiles.json); no box round-trip, no secret. The New-agent
+ * form renders a profile picker from this; "pick a profile" = a default build.
+ *
+ * When no profiles are configured yet, this returns an empty list and a null default; the form shows
+ * a "define them in setup" state instead of a broken empty picker.
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { parseAgentProfiles } from "../lib/agent-profiles.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "GET only" });
-  const defaultSkills = String(process.env.DEFAULT_SKILLS ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return res.status(200).json({ defaultSkills });
+  const config = parseAgentProfiles(process.env.AGENT_PROFILES);
+  return res.status(200).json({ profiles: config.profiles, defaultProfile: config.defaultProfile ?? null });
 }

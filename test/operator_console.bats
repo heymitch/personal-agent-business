@@ -53,13 +53,23 @@ setup() { CONSOLE="$REPO_ROOT/surfaces/operator-console"; export CONSOLE; }
   grep -q '/mint' "$CONSOLE/api/mint.ts"
 }
 
-# ---- default skills: the New-agent picker pre-checks the operator's defaults --
-@test "console New-agent picker pre-checks the operator DEFAULT_SKILLS" {
-  # the config endpoint surfaces the operator's default skills from env (no secret, no box hop)
-  grep -q 'DEFAULT_SKILLS' "$CONSOLE/api/config.ts"
-  # the picker fetches them and pre-checks the matching capabilities
+# ---- agent profiles: the New-agent form renders the operator's named builds ----
+@test "console New-agent form renders the operator's agent profiles (no hardcoded catalog)" {
+  # the config endpoint surfaces the operator's profiles from env (no secret, no box hop)
+  grep -q 'AGENT_PROFILES' "$CONSOLE/api/config.ts"
+  grep -q 'parseAgentProfiles' "$CONSOLE/api/config.ts"
+  # the form fetches them and renders a profile picker (pick a profile = a default build)
   grep -q '/api/config' "$CONSOLE/index.html"
-  grep -q 'defaultSkills' "$CONSOLE/index.html"
+  grep -q 'PROFILES' "$CONSOLE/index.html"
+  grep -q 'defaultProfile' "$CONSOLE/index.html"
+  # and it has a graceful "no profiles yet" state, not a broken empty list
+  grep -qi 'No agent profiles yet' "$CONSOLE/index.html"
+}
+
+@test "console ships NO hardcoded author skill ids (profiles are operator-defined)" {
+  run grep -RniE --exclude-dir=node_modules --exclude-dir=.vercel \
+    'repurpose|ghost-scorecard|sales-followup|kit-schedule|job-scan|trend-jack' "$CONSOLE"
+  [ "$status" -ne 0 ]
 }
 
 # ---- sanitization: PRIVATE -> PUBLIC, airtight -------------------------------

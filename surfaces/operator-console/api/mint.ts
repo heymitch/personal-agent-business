@@ -24,6 +24,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     email?: string;
     clientAccount?: string;
     priceMonthly?: number;
+    profile?: string;
     capabilities?: string[];
     needsKit?: boolean;
   };
@@ -32,6 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!personName) return res.status(400).json({ error: "personName required" });
   if (!email) return res.status(400).json({ error: "client email required" });
   const price = Number(body.priceMonthly);
+  const profile = String(body.profile ?? "").trim();
   const capabilities = Array.isArray(body.capabilities) ? body.capabilities.map(String) : [];
 
   try {
@@ -43,6 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         email,
         clientAccount: String(body.clientAccount ?? "").trim(),
         priceMonthly: Number.isFinite(price) && price >= 0 ? price : undefined,
+        profile,
         capabilities,
         needsKit: body.needsKit === true,
       }),
