@@ -48,6 +48,19 @@ healthy_env() {
   run "$SCRIPTS_DIR/doctor.sh"; [ "$status" -eq 0 ]; [[ "$output" == *"DOCTOR-OK"* ]]
 }
 
+# Fix 7: the proxied-Vercel origin pull needs zone SSL mode = Full. doctor runs an ADVISORY
+# ssl check that flags when it cannot confirm Full -- but it must NEVER flip the verdict
+# (the token may lack Zone Settings:Read), so a healthy run still emits DOCTOR-OK.
+@test "doctor runs an advisory SSL-mode check that never flips the verdict" {
+  make_fake_bin curl ssh
+  healthy_env
+  run "$SCRIPTS_DIR/doctor.sh"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *"DOCTOR-OK"* ]]
+  [[ "$output" == *"ssl"* ]]
+  [[ "$output" != *"component=ssl"* ]]
+}
+
 # Fix 6: a just-created hostname can fail ONLY because the local resolver still holds the
 # pre-creation NXDOMAIN. doctor must re-check by bypassing the local cache (Cloudflare DoH
 # + curl --resolve) and, if that responds, report a local-cache artifact, NOT a failure.

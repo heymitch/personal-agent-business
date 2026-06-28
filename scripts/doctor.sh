@@ -107,6 +107,35 @@ else
   fail surfaces "a deployed surface URL did not respond"
 fi
 
+# --- ssl: the proxied-Vercel origin pull needs zone SSL mode = Full (ADVISORY) ---
+# A proxied (orange) Vercel origin only completes its origin pull when the zone SSL/TLS
+# mode is Full (or Strict); Flexible/Off causes a 525. The API token may lack Zone
+# Settings:Read, so this NEVER flips the verdict -- it tells the operator what to set.
+ssl_check() {
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "[WARN] ssl: jq not installed; cannot confirm zone SSL mode. Set SSL/TLS > Overview to Full in Cloudflare."
+    return 0
+  fi
+  local tok="${CLOUDFLARE_API_TOKEN:-}" dom="${AGENT_DOMAIN:-}" api="https://api.cloudflare.com/client/v4"
+  if [ -z "$tok" ] || [ -z "$dom" ]; then
+    echo "[WARN] ssl: CLOUDFLARE_API_TOKEN/AGENT_DOMAIN unset; cannot confirm zone SSL mode is Full."
+    return 0
+  fi
+  local zone val
+  zone="$("$CURL" -sS -H "Authorization: Bearer $tok" "$api/zones?name=$dom" 2>/dev/null | jq -r '.result[0].id // empty' 2>/dev/null || true)"
+  if [ -z "$zone" ]; then
+    echo "[WARN] ssl: could not read the $dom zone (token may lack Zone:Read). Confirm SSL/TLS > Overview is Full in Cloudflare."
+    return 0
+  fi
+  val="$("$CURL" -sS -H "Authorization: Bearer $tok" "$api/zones/$zone/settings/ssl" 2>/dev/null | jq -r '.result.value // empty' 2>/dev/null || true)"
+  case "$val" in
+    full|strict) echo "[PASS] ssl: zone SSL mode is $val (proxied Vercel origin pull works)";;
+    "")          echo "[WARN] ssl: could not confirm SSL mode (token may lack Zone Settings:Read). Set SSL/TLS > Overview to Full in Cloudflare.";;
+    *)           echo "[WARN] ssl: zone SSL mode is '$val', but a proxied Vercel origin needs Full. Set SSL/TLS > Overview to Full in Cloudflare to avoid a 525.";;
+  esac
+}
+ssl_check
+
 # --- verdict ---------------------------------------------------------------------
 if [ "${#FAILS[@]}" -eq 0 ]; then
   echo "DOCTOR-OK"
