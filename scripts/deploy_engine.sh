@@ -73,11 +73,35 @@ render_unit() {
 SERVICE_RENDERED="$(render_unit "$HERE/../installer/systemd/reconcile-sessions.service")"
 TIMER_RENDERED="$(cat "$HERE/../installer/systemd/reconcile-sessions.timer")"
 
+# State-preserving rsync exclude set. The deploy uses --delete, so anything the
+# BOX writes at runtime must be excluded or a RE-DEPLOY onto a live box wipes it:
+#   .env / .env.*              the operator's provision env (OPENAI_ADMIN_KEY,
+#                              COMPOSIO_API_KEY, SIM_SECRET, MINT_SECRET). Losing
+#                              it re-keys every client on the box.
+#   receiver/session-store*    the userId -> sessionId bindings.
+#   receiver/*.jsonl           the CLIENT REGISTRY + mint queue + activity/status
+#                              logs (registry.jsonl, checkout-queue.jsonl,
+#                              activity.jsonl, status.jsonl). Losing it wipes the
+#                              operator's EXISTING clients.
+#   node_modules / *.log       rebuildable / noise.
+# None of these ship from the repo (all runtime-only), so excluding them never
+# skips a real deploy artifact.
+RSYNC_EXCLUDES=(
+  --exclude 'node_modules'
+  --exclude '.env'
+  --exclude '.env.*'
+  --exclude 'receiver/session-store*.json'
+  --exclude 'receiver/*.jsonl'
+  --exclude '*.log'
+)
+
 if [ "$DRY_RUN" -eq 1 ]; then
   echo "DRY-RUN deploy_engine -> root@${IP}"
   echo "1. rsync installer/ -> root@${IP}:${INSTALLER_ROOT} (then su - ${SERVICE_USER} -c 'npm ci')"
   echo "2. install receiver service (POST /refresh-session, GR1 instant path)"
   echo "3. install + enable reconcile-sessions.timer (GR1 backstop path, every 5 min)"
+  echo "   rsync excludes (state-preserving, survive the --delete on a re-deploy): ${RSYNC_EXCLUDES[*]}"
+  echo "4. restart receiver CLEAN: stop the old receiver + free port 8788, wait for release, THEN start the new one (exactly ONE receiver on the new code)"
   echo "--- rendered reconcile-sessions.service ---"
   echo "$SERVICE_RENDERED"
   echo "--- rendered reconcile-sessions.timer ---"
@@ -90,7 +114,7 @@ fi
 # 1. ship the engine and install deps as the hermes user.
 "$SSH" "${SSH_OPTS[@]}" "root@$IP" "su - ${SERVICE_USER} -c 'mkdir -p ${INSTALLER_ROOT}'" >/dev/null
 "$RSYNC" -az --delete \
-  --exclude node_modules --exclude 'receiver/session-store*.json' --exclude '*.log' \
+  "${RSYNC_EXCLUDES[@]}" \
   -e "$SSH ${SSH_OPTS[*]}" \
   "$HERE/../installer/" "root@$IP:${INSTALLER_ROOT}/" >/dev/null
 "$SSH" "${SSH_OPTS[@]}" "root@$IP" "chown -R ${SERVICE_USER}:${SERVICE_USER} ${INSTALLER_ROOT}" >/dev/null
@@ -101,8 +125,18 @@ printf '%s\n' "$SERVICE_RENDERED" | "$SSH" "${SSH_OPTS[@]}" "root@$IP" "cat > /e
 printf '%s\n' "$TIMER_RENDERED" | "$SSH" "${SSH_OPTS[@]}" "root@$IP" "cat > /etc/systemd/system/reconcile-sessions.timer"
 "$SSH" "${SSH_OPTS[@]}" "root@$IP" "systemctl daemon-reload && systemctl enable --now reconcile-sessions.timer" >/dev/null 2>&1 || true
 
-# 3. start the receiver (POST /refresh-session). It reads its OWN provision env
-#    file (GR4), not the agent's ~/.hermes/.env.
+# 3. restart the receiver CLEAN + idempotent (POST /refresh-session). A re-deploy
+#    onto a LIVE box would otherwise leave the OLD receiver holding port 8788 while
+#    the new code never serves (silent stale code). So STOP any existing receiver
+#    and free 8788 FIRST, wait for it to release, THEN start the new one -> exactly
+#    ONE receiver on the new code. The [r] bracket keeps pkill/pgrep from matching
+#    this very command line (the plain string only lives in the start call below).
+#    The receiver reads its OWN provision env file (GR4), not the agent's
+#    ~/.hermes/.env, and no secret is printed.
+STOP_RECEIVER="pkill -f \"[r]eceiver/server.ts\" 2>/dev/null || true; \
+command -v fuser >/dev/null 2>&1 && fuser -k 8788/tcp 2>/dev/null || true; \
+for _i in 1 2 3 4 5 6 7 8 9 10; do pgrep -f \"[r]eceiver/server.ts\" >/dev/null 2>&1 || break; sleep 1; done"
+"$SSH" "${SSH_OPTS[@]}" "root@$IP" "su - ${SERVICE_USER} -c '${STOP_RECEIVER}'" >/dev/null 2>&1 || true
 "$SSH" "${SSH_OPTS[@]}" "root@$IP" "su - ${SERVICE_USER} -c 'cd ${INSTALLER_ROOT} && (nohup node_modules/.bin/tsx receiver/server.ts >/dev/null 2>&1 &)'" >/dev/null 2>&1 || true
 
 echo "ENGINE-DEPLOYED ip=${IP}"
