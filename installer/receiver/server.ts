@@ -474,6 +474,10 @@ const server = createServer((req, res) => {
             ? `${slugify(personName)}-${slugify(clientAccount)}`
             : slugify(personName);
           const connect = stdout.match(/Onboarding link for .*?: (\S+)/);
+          // The per-client brain refs (non-secret): the project the mint named customer-<slug> and
+          // the service account inside it. Recorded so the dashboard's per-client spend ties out and
+          // offboarding can revoke ONLY this client's brain. The minted key itself is never echoed.
+          const brain = stdout.match(/BRAIN-OK project=(\S+) service_account=(\S+)/);
           const price = Number(body.priceMonthly);
           // AGENT-PROFILES build: every minted agent ships with the chosen profile's skills (a named
           // "build"), or the default profile when none is chosen (the mint floor), unioned with any
@@ -488,6 +492,8 @@ const server = createServer((req, res) => {
             capabilities,
             loginUrl: connect ? connect[1] : "",
             priceMonthly: Number.isFinite(price) && price >= 0 ? price : undefined,
+            brainProjectId: brain ? brain[1] : undefined,
+            brainServiceAccountId: brain ? brain[2] : undefined,
           });
           res.writeHead(200, { "content-type": "application/json" });
           res.end(

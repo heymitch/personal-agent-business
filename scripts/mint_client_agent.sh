@@ -10,12 +10,15 @@
 #   3. append a mint-request line to the queue (NOT a Stripe event)
 #   4. provision the Hetzner box  (scripts/provision.sh -> PROVISION-OK ip=<ip>)
 #   5. open the Cloudflare gate    (scripts/cf_portal.sh -> PORTAL-READY)
-#   6. create the Tool Router session bound to that user_id and persist
+#   6. mint an ISOLATED, rate-limited OpenAI brain for this client and pin it on
+#      the box  (installer/scripts/provision-brain-key.ts; project customer-<box>)
+#   7. create the Tool Router session bound to that user_id and persist
 #      userId -> sessionId  (installer/scripts/mint-session.ts; the SHIPPED store)
-#   7. surface the client's onboarding link  (/?user=<id>)
+#   8. surface the client's onboarding link  (/?user=<id>)
 #
 # Brain key, Hetzner box, Cloudflare gate, and the session all flow through the
-# vendored code. Secrets come ONLY from the loaded env; none is printed. Success
+# vendored code. Secrets come ONLY from the loaded env; none is printed (the
+# minted brain key lands on the box over ssh and is never echoed). Success
 # token (mutation-proven): MINT-OK user_id=<id> ip=<ip>.
 #
 # --dry-run prints the computed per-email id, the /?user=<id> connect URL, the
@@ -91,12 +94,22 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "box=${BOX_NAME}  fqdn=${BOX_FQDN}"
   echo "connect_url=${CONNECT_URL}"
   echo "queue<-${QUEUE}: $(queue_line)"
-  echo "would: provision.sh --dry-run; cf_portal.sh --dry-run; mint-session (create+persist userId->sessionId)"
+  echo "would: provision.sh; cf_portal.sh; provision-brain-key (mint isolated brain for customer-${BOX_NAME}, pin on box); mint-session (create+persist userId->sessionId)"
   exit 0
 fi
 
 # --- REAL on-demand mint --------------------------------------------------------
 require_env HETZNER_TOKEN COMPOSIO_API_KEY
+
+# This CLIENT box needs an ISOLATED, rate-limited brain, which the factory mints with
+# the OpenAI Admin key. Check it BEFORE provisioning so a missing key fails clean (no
+# half-provisioned, brainless client). The own-box path connects a model by OAuth and
+# does not run this script; only the per-client mint does.
+if [ -z "${OPENAI_ADMIN_KEY:-}" ]; then
+  echo "ERROR: OPENAI_ADMIN_KEY is not set. Set your OpenAI Admin key (sk-admin-...) so the mint" \
+    "can provision an isolated, rate-limited brain for this client." >&2
+  exit 2
+fi
 
 mkdir -p "$(dirname "$QUEUE")"
 queue_line >> "$QUEUE"; printf '\n' >> "$QUEUE"
@@ -113,9 +126,31 @@ else
   AGENT_NAME="$BOX_NAME" "$HERE/cf_portal.sh" >/dev/null || true
 fi
 
-# 3. Create the Tool Router session bound to the per-email user_id and persist
+# 3. Mint an ISOLATED, rate-limited OpenAI brain for THIS client and pin it on the box
+#    (provider openai-api, base_url https://api.openai.com/v1). customerSlug is BOX_NAME,
+#    so the project is customer-<BOX_NAME> and the dashboard's per-client spend (keyed on
+#    customer-<slug>) ties out. The Admin key stays HERE; only the minted service-account
+#    key lands on the box, over ssh, and is NEVER printed. On failure the box is up but
+#    brainless and the minted key is rolled back, so re-running is safe.
+: "${BRAIN_KEY_CMD:=$TSX $INSTALLER/scripts/provision-brain-key.ts}"
+brain_args=(--slug "$BOX_NAME" --ip "$IP")
+[ -n "${BRAIN_RPM:-}" ] && brain_args+=(--rpm "$BRAIN_RPM")
+[ -n "${BRAIN_TPM:-}" ] && brain_args+=(--tpm "$BRAIN_TPM")
+[ -n "${OPENAI_BRAIN_MODEL:-}" ] && brain_args+=(--model "$OPENAI_BRAIN_MODEL")
+# shellcheck disable=SC2086
+BRAIN_OUT="$($BRAIN_KEY_CMD "${brain_args[@]}")" || {
+  echo "ERROR: failed to mint/wire the client brain key (box is brainless; re-run after fixing" \
+    "OPENAI_ADMIN_KEY or box reachability)." >&2
+  exit 1
+}
+# Surface ONLY the non-secret refs so the receiver can record the project for offboarding.
+BRAIN_PROJECT="$(printf '%s' "$BRAIN_OUT" | sed -n 's/.*"projectId":"\([^"]*\)".*/\1/p')"
+BRAIN_SA="$(printf '%s' "$BRAIN_OUT" | sed -n 's/.*"serviceAccountId":"\([^"]*\)".*/\1/p')"
+
+# 4. Create the Tool Router session bound to the per-email user_id and persist
 #    userId -> sessionId (the SHIPPED engine; GR2: create once here, expand later).
 $TSX "$INSTALLER/scripts/mint-session.ts" "$USER_ID" >/dev/null
 
 echo "Onboarding link for ${PERSON_NAME}: ${CONNECT_URL}"
+echo "BRAIN-OK project=${BRAIN_PROJECT} service_account=${BRAIN_SA}"
 echo "MINT-OK user_id=${USER_ID} ip=${IP}"

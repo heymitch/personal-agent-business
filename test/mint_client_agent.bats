@@ -18,6 +18,20 @@ setup() {
   export HETZNER_TOKEN="fake-token-987654321"
   export OPENAI_ADMIN_KEY="sk-admin-fake"
   export CLOUDFLARE_API_TOKEN="cf-fake" CLOUDFLARE_ACCOUNT_ID="acct-fake" OWNER_EMAIL="op@x.com"
+
+  # The brain-mint step (provision-brain-key) talks to OpenAI + ssh, so shim it: a
+  # recorder that captures its args and prints a NON-secret summary JSON exactly like
+  # the real CLI (so the mint script's BRAIN-OK parse works). No real key is ever minted.
+  BRAIN_REC="$REPO_ROOT/test/tmp/brain-rec-$$.txt"
+  export BRAIN_REC
+  rm -f "$BRAIN_REC"
+  cat > "$FAKE_BIN/fake-brain" <<EOF
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$BRAIN_REC"
+echo '{"ok":true,"customerSlug":"x","projectId":"proj_fake","serviceAccountId":"svc_fake","model":"gpt-5.5","rateLimited":true}'
+EOF
+  chmod +x "$FAKE_BIN/fake-brain"
+  export BRAIN_KEY_CMD="$FAKE_BIN/fake-brain"
 }
 
 teardown() { teardown_fake_bin; }
@@ -85,10 +99,48 @@ teardown() { teardown_fake_bin; }
   [[ "$output" == *"MINT-OK"* ]]
   [[ "$output" == *"user_id=wm-"* ]]
   [[ "$output" == *"ip=203.0.113.55"* ]]
+  # the per-client brain was minted + pinned, and only the non-secret refs surfaced
+  [[ "$output" == *"BRAIN-OK project=proj_fake service_account=svc_fake"* ]]
   # the userId -> sessionId binding was persisted via the SHIPPED session store
   [ -f "$store" ]
   run grep -F "trs_faked_123" "$store"
   [ "$status" -eq 0 ]
   run grep -oE 'wm-[0-9a-f]{24}' "$store"
   [ "$status" -eq 0 ]
+}
+
+@test "mint mints an ISOLATED brain for the per-account slug and pins it on the box ip" {
+  # The brain step must run with customerSlug = the box slug (so the project becomes
+  # customer-<slug> and the dashboard ties out) and the provisioned box ip.
+  export MINT_FAKE_IP="203.0.113.55"
+  export MINT_FAKE_SESSION_ID="trs_faked_123"
+  run "$SCRIPTS_DIR/mint_client_agent.sh" \
+    --email "client@x.com" --client-account "acme" --person-name "Dana"
+  [ "$status" -eq 0 ]
+  # the brain-mint CLI was invoked with the per-client slug + box ip
+  run grep -F -- "--slug dana-acme" "$BRAIN_REC"
+  [ "$status" -eq 0 ]
+  run grep -F -- "--ip 203.0.113.55" "$BRAIN_REC"
+  [ "$status" -eq 0 ]
+}
+
+@test "mint never prints the admin key while minting the brain" {
+  export MINT_FAKE_IP="203.0.113.55"
+  export MINT_FAKE_SESSION_ID="trs_faked_123"
+  run "$SCRIPTS_DIR/mint_client_agent.sh" \
+    --email "client@x.com" --client-account "acme" --person-name "Dana"
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"sk-admin-fake"* ]]
+}
+
+@test "mint fails clean with a clear message when OPENAI_ADMIN_KEY is unset (no half-provisioned client)" {
+  unset OPENAI_ADMIN_KEY
+  export MINT_FAKE_IP="203.0.113.55"   # would short-circuit provisioning IF we got that far
+  run "$SCRIPTS_DIR/mint_client_agent.sh" \
+    --email "client@x.com" --client-account "acme" --person-name "Dana"
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"OPENAI_ADMIN_KEY"* ]]
+  [[ "$output" == *"Admin key"* ]]
+  # the brain step was never reached (no box, no mint)
+  [ ! -s "$BRAIN_REC" ]
 }

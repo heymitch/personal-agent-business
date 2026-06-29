@@ -21,6 +21,13 @@ export interface AgentRecord {
   priceMonthly?: number;
   /** ISO timestamp, stamped at record time. */
   createdAt: string;
+  /**
+   * The isolated OpenAI project minted for this client's brain (named customer-<slug>). It is
+   * what the dashboard's per-client spend keys on, and what offboarding revokes.
+   */
+  brainProjectId?: string;
+  /** The service account inside that project; deleting it revokes ONLY this client's brain. */
+  brainServiceAccountId?: string;
   /** True once the agent has been torn down. Retired agents drop out of the default fleet view. */
   retired?: boolean;
   /** ISO timestamp of when it was retired. */
